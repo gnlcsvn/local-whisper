@@ -15,6 +15,7 @@ Press **Ctrl+Shift+D** to start recording. Speak, then press **Ctrl+Shift+D** ag
 | Menubar | State |
 |---------|-------|
 | 🎤 | Ready |
+| ⬇ | Downloading model |
 | 🔴 Rec | Recording (with timer) |
 | ⏳ | Transcribing / pasting |
 
@@ -22,10 +23,33 @@ Recording auto-stops after 2 minutes.
 
 ## Menu Options
 
-- **Model** — Tiny / Small / Turbo (default) / Medium / Large
-- **Language** — Deutsch / English / Français / Español / Italiano / Auto-detect
+- **Model** — shows download size and cache status per model
+  - `Turbo – balanced (recommended) [1.5 GB, downloaded]`
+  - `Small – fast, good accuracy [460 MB]`
+  - Selecting an uncached model downloads it automatically with status feedback
+- **Input Language** — Deutsch / English / Français / Español / Italiano / Auto-detect
+- **Translate** — toggle translation on/off (menu stays open, macOS-native toggle)
+- **Output Language** — target language for translation
+- **Shortcut** — Ctrl+Shift+D, Ctrl+Shift+Space, double-tap Ctrl/Cmd/Shift
 - **Last transcription** — click to copy to clipboard
 - Settings persist across restarts (`~/.localwhisper.json`)
+
+## Translation
+
+LocalWhisper supports any-to-any translation using a local LLM (Llama 3.2 3B, ~1.8 GB). Enable **Translate**, pick input and output languages, and dictate. The LLM downloads automatically on first use with status feedback. For input-to-English, Whisper's built-in translation is used instead (no LLM needed).
+
+## Model Downloads
+
+Models download from HuggingFace Hub on first use. The app shows download status in the menu bar and blocks recording with a notification until the model is ready.
+
+| Model | Size | Notes |
+|-------|------|-------|
+| Tiny | 75 MB | Fastest, least accurate |
+| Small | 460 MB | Fast, good accuracy |
+| Turbo | 1.5 GB | Balanced (default) |
+| Medium | 1.5 GB | Slower, better accuracy |
+| Large | 3.0 GB | Slowest, best accuracy |
+| Translation LLM | 1.8 GB | Downloaded on first translation |
 
 ## Build from Source
 
@@ -48,12 +72,14 @@ pyinstaller LocalWhisper.spec --noconfirm
 
 - **Recording**: `sounddevice` captures 16kHz float32 mono audio in memory — no disk I/O
 - **Transcription**: `mlx-whisper` runs Whisper models natively on Apple Silicon GPU
+- **Translation**: `mlx-lm` runs a 4-bit quantized LLM locally for any-to-any translation
 - **Insertion**: Clipboard save → pbcopy → osascript Cmd+V → clipboard restore
-- **State machine**: `IDLE → RECORDING → PROCESSING → INSERTING → IDLE`, thread-safe with locks
+- **Model management**: Cache checks via `huggingface_hub`, background downloads with UI feedback
+- **State machine**: `IDLE → DOWNLOADING → RECORDING → PROCESSING → INSERTING → IDLE`, thread-safe with locks
 
 ## Notes
 
-- First transcription downloads the model from HuggingFace (~80MB for tiny, ~3GB for large)
-- No network requests after initial model download
+- First launch downloads the default model (Turbo, 1.5 GB) with progress in the status bar
+- No network requests after initial model downloads
 - Audio is never saved to disk
 - Not signed with Apple Developer certificate — right-click → Open on first launch

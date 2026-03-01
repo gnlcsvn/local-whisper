@@ -3,5 +3,6 @@ pynput>=1.7.6
 sounddevice>=0.4.6
 numpy>=1.24.0
 mlx-whisper>=0.4.0
+mlx-lm>=0.20.0
 pyobjc-framework-AVFoundation>=10.0
 pyobjc-framework-ApplicationServices>=10.0

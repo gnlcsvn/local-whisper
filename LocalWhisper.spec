@@ -11,6 +11,7 @@ mlx_datas = collect_data_files("mlx")
 sounddevice_datas = collect_data_files("_sounddevice_data")
 tiktoken_datas = collect_data_files("tiktoken")
 mlx_whisper_datas = collect_data_files("mlx_whisper")
+mlx_lm_datas = collect_data_files("mlx_lm")
 certifi_datas = collect_data_files("certifi")
 
 # Status bar icon template images
@@ -19,11 +20,12 @@ statusbar_datas = [
     ("statusbar_iconTemplate@2x.png", "."),
 ]
 
-all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + certifi_datas + statusbar_datas
+all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + mlx_lm_datas + certifi_datas + statusbar_datas
 
 # Collect all submodules for tricky packages
 mlx_imports = collect_submodules("mlx")
 mlx_whisper_imports = collect_submodules("mlx_whisper")
+mlx_lm_imports = collect_submodules("mlx_lm")
 pynput_imports = collect_submodules("pynput")
 numba_imports = collect_submodules("numba")
 scipy_imports = collect_submodules("scipy")
@@ -39,6 +41,8 @@ a = Analysis(
         "transcriber",
         "inserter",
         "hotkey",
+        "translator",
+        "model_manager",
         "rumps",
         "sounddevice",
         "numpy",
@@ -58,7 +62,7 @@ a = Analysis(
         "Quartz",
         "objc",
         "_sounddevice_data",
-    ] + mlx_imports + mlx_whisper_imports + pynput_imports + numba_imports + scipy_imports,
+    ] + mlx_imports + mlx_whisper_imports + mlx_lm_imports + pynput_imports + numba_imports + scipy_imports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

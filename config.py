@@ -6,6 +6,35 @@ MODEL_MAP = {
     "large": "mlx-community/whisper-large-v3-turbo",
 }
 
+MODEL_SIZES_MB = {"tiny": 75, "small": 460, "turbo": 1500, "medium": 1500, "large": 3000}
+
+DEFAULT_MODEL = "turbo"
+
+LLM_MODEL_REPO = "mlx-community/Llama-3.2-3B-Instruct-4bit"
+LLM_SIZE_MB = 1800
+
+# Models that support translation (turbo was NOT trained on translation data)
+TRANSLATION_CAPABLE_MODELS = {"tiny", "small", "medium", "large"}
+# Best model for translation when user's selected model can't translate
+TRANSLATION_FALLBACK_MODEL = "medium"
+
+# Supported languages with their codes
+LANGUAGES = {
+    "de": "Deutsch",
+    "en": "English",
+    "fr": "Fran\u00e7ais",
+    "es": "Espa\u00f1ol",
+    "it": "Italiano",
+    "pt": "Portugu\u00eas",
+    "nl": "Nederlands",
+    "pl": "Polski",
+    "ja": "\u65e5\u672c\u8a9e",
+    "zh": "\u4e2d\u6587",
+    "ko": "\ud55c\uad6d\uc5b4",
+    "ru": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
+    "auto": "Auto-detect",
+}
+
 # Shortcut presets: id -> (display_label, type, config)
 SHORTCUT_PRESETS = {
     "ctrl_shift_d": {
@@ -43,7 +72,9 @@ class Config:
     shortcut: str = "ctrl_shift_d"
     sample_rate: int = 16_000
     max_recording_seconds: int = 120
-    language: str = "de"
+    language: str = "de"           # input language (what you speak)
+    output_language: str = "de"    # output language (what gets typed)
+    translate: bool = False        # enable translation mode
     model_name: str = "turbo"
 
     @property
@@ -55,3 +86,13 @@ class Config:
     @property
     def model_repo(self) -> str:
         return MODEL_MAP[self.model_name]
+
+    @property
+    def needs_translation(self) -> bool:
+        """True if translate is on and input != output."""
+        return self.translate and self.language != self.output_language
+
+    @property
+    def whisper_can_translate(self) -> bool:
+        """True if Whisper can handle the translation natively (→ English only)."""
+        return self.needs_translation and self.output_language == "en"
