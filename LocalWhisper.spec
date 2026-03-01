@@ -13,7 +13,13 @@ tiktoken_datas = collect_data_files("tiktoken")
 mlx_whisper_datas = collect_data_files("mlx_whisper")
 certifi_datas = collect_data_files("certifi")
 
-all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + certifi_datas
+# Status bar icon template images
+statusbar_datas = [
+    ("statusbar_iconTemplate.png", "."),
+    ("statusbar_iconTemplate@2x.png", "."),
+]
+
+all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + certifi_datas + statusbar_datas
 
 # Collect all submodules for tricky packages
 mlx_imports = collect_submodules("mlx")
@@ -48,6 +54,8 @@ a = Analysis(
         "cffi",
         "AVFoundation",
         "ApplicationServices",
+        "AppKit",
+        "Quartz",
         "objc",
         "_sounddevice_data",
     ] + mlx_imports + mlx_whisper_imports + pynput_imports + numba_imports + scipy_imports,
