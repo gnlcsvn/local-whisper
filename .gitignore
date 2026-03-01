@@ -1,0 +1,10 @@
+venv/
+build/
+dist/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.DS_Store
+icon_1024.png
+*.icns
