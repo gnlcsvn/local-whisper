@@ -32,7 +32,7 @@ from transcriber import WhisperTranscriber
 from translator import LLMProcessor
 from inserter import TextInserter, InsertionError
 from hotkey import HotkeyListener
-from statusbar_animator import StatusBarAnimator
+from overlay import OverlayWindow
 
 
 def _resource_path(relative: str) -> str:
@@ -54,7 +54,7 @@ class State(enum.Enum):
 MENUBAR_TITLES = {
     State.IDLE: "",
     State.DOWNLOADING: "",
-    State.RECORDING: "Rec",
+    State.RECORDING: "",
     State.PROCESSING: "",
     State.INSERTING: "",
 }
@@ -299,7 +299,7 @@ class LocalWhisperApp(rumps.App):
             quit_button=None,
         )
 
-        self._animator = StatusBarAnimator(self, _resource_path)
+        self._overlay = OverlayWindow(_resource_path)
 
         self._config = Config()
         _load_settings(self._config)
@@ -762,15 +762,15 @@ class LocalWhisperApp(rumps.App):
         with self._pending_lock:
             self._pending_ui = update
 
-        # Drive the status bar icon animation
+        # Drive the floating overlay animation
         if state == State.IDLE:
-            self._animator.stop()
+            self._overlay.hide()
         elif state == State.DOWNLOADING:
-            self._animator.start_downloading()
+            self._overlay.show_processing()
         elif state == State.RECORDING:
-            self._animator.start_recording()
+            self._overlay.show_recording()
         elif state in (State.PROCESSING, State.INSERTING):
-            self._animator.start_processing()
+            self._overlay.show_processing()
 
     def _notify(self, message: str) -> None:
         with self._pending_lock:

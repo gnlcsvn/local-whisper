@@ -7,4 +7,3 @@ __pycache__/
 *.egg-info/
 .DS_Store
 icon_1024.png
-*.icns

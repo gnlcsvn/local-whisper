@@ -1,5 +1,4 @@
 # -*- mode: python ; coding: utf-8 -*-
-import glob
 import os
 import site
 
@@ -15,8 +14,8 @@ mlx_whisper_datas = collect_data_files("mlx_whisper")
 mlx_lm_datas = collect_data_files("mlx_lm")
 certifi_datas = collect_data_files("certifi")
 
-# Status bar icon template images (idle + 6 rec frames + 8 proc frames, each with @2x)
-statusbar_datas = [(f, "icons") for f in glob.glob("icons/statusbar_*Template*.png")]
+# Status bar idle icon only (overlay handles animated states via WKWebView)
+statusbar_datas = [("icons/statusbar_idleTemplate.png", "icons"), ("icons/statusbar_idleTemplate@2x.png", "icons")]
 
 all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + mlx_lm_datas + certifi_datas + statusbar_datas
 
@@ -41,7 +40,7 @@ a = Analysis(
         "hotkey",
         "translator",
         "model_manager",
-        "statusbar_animator",
+        "overlay",
         "rumps",
         "sounddevice",
         "numpy",
@@ -60,6 +59,7 @@ a = Analysis(
         "AppKit",
         "Quartz",
         "objc",
+        "WebKit",
         "_sounddevice_data",
     ] + mlx_imports + mlx_whisper_imports + mlx_lm_imports + pynput_imports + numba_imports + scipy_imports,
     hookspath=[],
