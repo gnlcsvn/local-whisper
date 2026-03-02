@@ -5,16 +5,9 @@ Shows animated SVG lock+waveform icons via a WKWebView overlay
 in the top-right corner (Siri position) during recording/processing.
 """
 
-from AppKit import (
-    NSWindow,
-    NSColor,
-    NSScreen,
-    NSWindowCollectionBehaviorCanJoinAllSpaces,
-    NSWindowCollectionBehaviorFullScreenAuxiliary,
-)
-from Foundation import NSMakeRect
-from WebKit import WKWebView, WKWebViewConfiguration
-from PyObjCTools.AppHelper import callAfter
+import logging
+
+log = logging.getLogger("LocalWhisper")
 
 _SIZE = 120
 _PAD = 8
@@ -98,61 +91,98 @@ document.getElementById('%s').classList.add('active');
 
 
 class OverlayWindow:
-    """Floating WKWebView overlay that shows animated SVG states."""
+    """Floating WKWebView overlay that shows animated SVG states.
+
+    All framework imports are deferred to init() so that a failure
+    to load WebKit doesn't prevent the app from starting.
+    """
 
     def __init__(self, resource_path_fn=None):
-        screen = NSScreen.mainScreen()
-        sf = screen.frame()
-        vf = screen.visibleFrame()
-        x = sf.size.width - _SIZE - _PAD
-        y = vf.origin.y + vf.size.height - _SIZE
+        self._win = None
+        self._wv = None
+        self._ready = False
 
-        self._win = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
-            NSMakeRect(x, y, _SIZE, _SIZE),
-            0,  # borderless
-            2,  # NSBackingStoreBuffered
-            False,
-        )
-        self._win.setOpaque_(False)
-        self._win.setBackgroundColor_(NSColor.clearColor())
-        self._win.setLevel_(25)
-        self._win.setHasShadow_(False)
-        self._win.setIgnoresMouseEvents_(True)
-        self._win.setCollectionBehavior_(
-            NSWindowCollectionBehaviorCanJoinAllSpaces
-            | NSWindowCollectionBehaviorFullScreenAuxiliary
-        )
+        try:
+            from AppKit import (
+                NSWindow,
+                NSColor,
+                NSScreen,
+                NSWindowCollectionBehaviorCanJoinAllSpaces,
+                NSWindowCollectionBehaviorFullScreenAuxiliary,
+            )
+            from Foundation import NSMakeRect
+            from WebKit import WKWebView, WKWebViewConfiguration
+            from PyObjCTools.AppHelper import callAfter
 
-        config = WKWebViewConfiguration.alloc().init()
-        self._wv = WKWebView.alloc().initWithFrame_configuration_(
-            NSMakeRect(0, 0, _SIZE, _SIZE), config
-        )
-        self._wv.setValue_forKey_(False, "drawsBackground")
-        self._wv.loadHTMLString_baseURL_(_OVERLAY_HTML, None)
-        self._win.setContentView_(self._wv)
+            self._callAfter = callAfter
 
-        self._win.setAlphaValue_(0.0)
+            screen = NSScreen.mainScreen()
+            if screen is None:
+                log.warning("Overlay: NSScreen.mainScreen() returned None")
+                return
+
+            sf = screen.frame()
+            vf = screen.visibleFrame()
+            x = sf.size.width - _SIZE - _PAD
+            y = vf.origin.y + vf.size.height - _SIZE
+
+            self._win = NSWindow.alloc().initWithContentRect_styleMask_backing_defer_(
+                NSMakeRect(x, y, _SIZE, _SIZE),
+                0,  # borderless
+                2,  # NSBackingStoreBuffered
+                False,
+            )
+            self._win.setOpaque_(False)
+            self._win.setBackgroundColor_(NSColor.clearColor())
+            self._win.setLevel_(25)
+            self._win.setHasShadow_(False)
+            self._win.setIgnoresMouseEvents_(True)
+            self._win.setCollectionBehavior_(
+                NSWindowCollectionBehaviorCanJoinAllSpaces
+                | NSWindowCollectionBehaviorFullScreenAuxiliary
+            )
+
+            config = WKWebViewConfiguration.alloc().init()
+            self._wv = WKWebView.alloc().initWithFrame_configuration_(
+                NSMakeRect(0, 0, _SIZE, _SIZE), config
+            )
+            self._wv.setValue_forKey_(False, "drawsBackground")
+            self._wv.loadHTMLString_baseURL_(_OVERLAY_HTML, None)
+            self._win.setContentView_(self._wv)
+
+            self._win.setAlphaValue_(0.0)
+            self._ready = True
+            log.info("Overlay: initialized successfully")
+
+        except Exception:
+            log.exception("Overlay: failed to initialize, overlay disabled")
 
     def show_recording(self):
         """Show the overlay with red pulsing bars animation."""
+        if not self._ready:
+            return
         def _do():
             self._wv.evaluateJavaScript_completionHandler_(
                 _JS_SET_STATE % "recording", None
             )
             self._win.setAlphaValue_(1.0)
             self._win.orderFrontRegardless()
-        callAfter(_do)
+        self._callAfter(_do)
 
     def show_processing(self):
         """Show the overlay with purple spinner animation."""
+        if not self._ready:
+            return
         def _do():
             self._wv.evaluateJavaScript_completionHandler_(
                 _JS_SET_STATE % "processing", None
             )
             self._win.setAlphaValue_(1.0)
             self._win.orderFrontRegardless()
-        callAfter(_do)
+        self._callAfter(_do)
 
     def hide(self):
         """Hide the overlay."""
-        callAfter(self._win.setAlphaValue_, 0.0)
+        if not self._ready:
+            return
+        self._callAfter(self._win.setAlphaValue_, 0.0)
