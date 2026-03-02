@@ -83,4 +83,4 @@ pyinstaller LocalWhisper.spec --noconfirm
 - First launch downloads the default model (Turbo, 1.5 GB) with progress in the status bar
 - No network requests after initial model downloads
 - Audio is never saved to disk
-- Not signed with Apple Developer certificate — right-click → Open on first launch
+- Not signed with Apple Developer certificate — on first launch, macOS will block it. Go to **System Settings → Privacy & Security**, scroll down, and click **Open Anyway**
