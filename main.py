@@ -8,6 +8,7 @@ import threading
 import traceback
 
 import rumps
+import sounddevice as sd
 
 # File logging for crash debugging
 _LOG_PATH = os.path.expanduser("~/localwhisper.log")
@@ -185,6 +186,34 @@ def _play_sound(path: str) -> None:
         pass
 
 
+def _get_input_devices() -> list[dict]:
+    """Return input-capable audio devices as [{"index": int, "name": str}, ...]."""
+    try:
+        devices = sd.query_devices()
+        return [
+            {"index": i, "name": d["name"]}
+            for i, d in enumerate(devices)
+            if d["max_input_channels"] > 0
+        ]
+    except Exception:
+        log.exception("Failed to query audio devices")
+        return []
+
+
+def _resolve_device_name(name: str | None) -> int | None:
+    """Resolve a saved device name to its current index. None if not found."""
+    if name is None:
+        return None
+    try:
+        devices = sd.query_devices()
+        for i, d in enumerate(devices):
+            if d["max_input_channels"] > 0 and d["name"] == name:
+                return i
+    except Exception:
+        log.exception("Failed to resolve device name")
+    return None
+
+
 def _load_settings(config: Config) -> None:
     try:
         with open(SETTINGS_PATH) as f:
@@ -202,6 +231,9 @@ def _load_settings(config: Config) -> None:
         shortcut = data.get("shortcut", "")
         if shortcut in SHORTCUT_PRESETS:
             config.shortcut = shortcut
+        input_dev = data.get("input_device")
+        if input_dev is None or isinstance(input_dev, str):
+            config.input_device = input_dev
     except (FileNotFoundError, json.JSONDecodeError, KeyError):
         pass
 
@@ -216,6 +248,7 @@ def _save_settings(config: Config) -> None:
                     "output_language": config.output_language,
                     "translate": config.translate,
                     "shortcut": config.shortcut,
+                    "input_device": config.input_device,
                 },
                 f,
             )
@@ -282,6 +315,14 @@ class LocalWhisperApp(rumps.App):
         self._hotkey_listener: HotkeyListener | None = None
 
         self._recorder = AudioRecorder(sample_rate=self._config.sample_rate)
+        # Resolve saved microphone
+        device_index = _resolve_device_name(self._config.input_device)
+        if device_index is None and self._config.input_device is not None:
+            log.warning(f"Saved input device '{self._config.input_device}' not found, using system default")
+            self._config.input_device = None
+            _save_settings(self._config)
+        self._recorder.change_device(device_index)
+
         self._transcriber = WhisperTranscriber(
             model_name=self._config.model_name,
             language=self._config.language,
@@ -295,6 +336,8 @@ class LocalWhisperApp(rumps.App):
         self._model_cache_status: dict[str, bool | None] = {
             name: None for name in MODEL_MAP
         }
+        self._last_input_devices: list[dict] | None = None
+        self._device_poll_counter: int = 0
 
         self._build_menu()
         self._start_hotkey()
@@ -364,6 +407,10 @@ class LocalWhisperApp(rumps.App):
             item.state = preset_id == self._config.shortcut
             self._shortcut_menu.add(item)
 
+        # Microphone submenu
+        self._mic_menu = rumps.MenuItem("Microphone")
+        self._build_mic_items()
+
         about = rumps.MenuItem("About LocalWhisper", callback=self._on_about)
         quit_item = rumps.MenuItem("Quit LocalWhisper", callback=self._on_quit)
 
@@ -381,6 +428,7 @@ class LocalWhisperApp(rumps.App):
             self._translate_item,
             self._output_lang_menu,
             None,
+            self._mic_menu,
             self._shortcut_menu,
             None,
             about,
@@ -499,6 +547,62 @@ class LocalWhisperApp(rumps.App):
         except Exception:
             log.exception("Error in _on_shortcut_select")
 
+    def _build_mic_items(self):
+        """Populate the Microphone submenu with current input devices."""
+        self._mic_menu.clear()
+
+        # "System Default" always first
+        default_item = rumps.MenuItem("System Default", callback=self._on_mic_select)
+        default_item._device_name = None
+        default_item._device_index = None
+        default_item.state = self._config.input_device is None
+        self._mic_menu.add(default_item)
+
+        devices = _get_input_devices()
+        for dev in devices:
+            item = rumps.MenuItem(dev["name"], callback=self._on_mic_select)
+            item._device_name = dev["name"]
+            item._device_index = dev["index"]
+            item.state = dev["name"] == self._config.input_device
+            self._mic_menu.add(item)
+
+        self._last_input_devices = devices
+
+    def _on_mic_select(self, sender):
+        """Handle microphone selection."""
+        device_name = sender._device_name
+        device_index = sender._device_index
+
+        if device_name == self._config.input_device:
+            return
+
+        self._config.input_device = device_name
+        self._recorder.change_device(device_index)
+
+        for item in self._mic_menu.values():
+            item.state = getattr(item, "_device_name", "NOMATCH") == device_name
+
+        _save_settings(self._config)
+        log.info(f"Microphone changed to: {device_name or 'System Default'} (index={device_index})")
+
+    def _check_device_changes(self):
+        """Refresh mic menu if the available devices changed."""
+        current = _get_input_devices()
+        if current == self._last_input_devices:
+            return
+
+        log.info(f"Audio devices changed: {len(self._last_input_devices or [])} -> {len(current)}")
+
+        if self._config.input_device is not None:
+            available_names = {d["name"] for d in current}
+            if self._config.input_device not in available_names:
+                log.warning(f"Selected device '{self._config.input_device}' disappeared, falling back to system default")
+                self._config.input_device = None
+                self._recorder.change_device(None)
+                _save_settings(self._config)
+
+        self._build_mic_items()
+
     def _on_copy_last(self, _):
         if self._last_transcription:
             from inserter import _set_clipboard
@@ -595,6 +699,12 @@ class LocalWhisperApp(rumps.App):
             threading.Thread(
                 target=self._ensure_default_model, daemon=True, name="ensure-default"
             ).start()
+
+        # Poll for audio device changes every ~3 seconds
+        self._device_poll_counter += 1
+        if self._device_poll_counter >= 30:
+            self._device_poll_counter = 0
+            self._check_device_changes()
 
         with self._pending_lock:
             notif = self._pending_notification

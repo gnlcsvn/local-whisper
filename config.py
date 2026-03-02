@@ -76,6 +76,7 @@ class Config:
     output_language: str = "de"    # output language (what gets typed)
     translate: bool = False        # enable translation mode
     model_name: str = "turbo"
+    input_device: str | None = None  # None = system default; otherwise device name
 
     @property
     def hotkey(self) -> str:
