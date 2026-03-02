@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocalWhisper — Private Offline Dictation for Mac</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #08060F;
+    --bg-card: #0F0C1A;
+    --bg-elevated: #161226;
+    --indigo-dark: #15132B;
+    --indigo-mid: #2D2B55;
+    --indigo-bright: #6C63FF;
+    --indigo-glow: #8B83FF;
+    --indigo-soft: #4A45A0;
+    --text-primary: #EEEDF5;
+    --text-secondary: #8A87A8;
+    --text-muted: #5C5880;
+    --accent-warm: #FF6B6B;
+    --accent-teal: #5AC8FA;
+    --surface-glass: rgba(255,255,255,0.04);
+    --border-subtle: rgba(255,255,255,0.06);
+    --border-glass: rgba(140,130,255,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html {
+    scroll-behavior: smooth;
+    background: var(--bg-deep);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    font-weight: 400;
+    line-height: 1.65;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ─── NOISE TEXTURE ─── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ─── HERO GLOW ─── */
+  .hero-glow {
+    position: absolute;
+    width: 800px;
+    height: 800px;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, rgba(108,99,255,0.12) 0%, rgba(108,99,255,0.04) 40%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .hero-glow-2 {
+    position: absolute;
+    width: 600px;
+    height: 600px;
+    top: 200px;
+    right: -200px;
+    background: radial-gradient(ellipse at center, rgba(90,200,250,0.06) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 100;
+    padding: 16px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(8,6,15,0.7);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+    color: var(--text-primary);
+  }
+
+  .nav-brand svg { flex-shrink: 0; }
+
+  .nav-brand span {
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-links { display: flex; align-items: center; gap: 8px; }
+
+  .nav-links a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--text-primary); background: var(--surface-glass); }
+
+  .btn-github {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.25s;
+  }
+
+  .btn-github:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+  }
+
+  /* ─── HERO ─── */
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 140px 24px 80px;
+    text-align: center;
+    overflow: hidden;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 16px 6px 8px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--indigo-glow);
+    letter-spacing: 0.02em;
+    margin-bottom: 32px;
+    animation: fadeUp 0.8s ease both;
+  }
+
+  .hero-badge .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #34C759;
+    box-shadow: 0 0 8px rgba(52,199,89,0.5);
+  }
+
+  .hero h1 {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: clamp(48px, 8vw, 88px);
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1.05;
+    letter-spacing: -0.03em;
+    color: var(--text-primary);
+    max-width: 780px;
+    margin-bottom: 24px;
+    animation: fadeUp 0.8s 0.1s ease both;
+  }
+
+  .hero h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--indigo-bright), var(--accent-teal));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 18px;
+    color: var(--text-secondary);
+    max-width: 520px;
+    line-height: 1.6;
+    margin-bottom: 48px;
+    animation: fadeUp 0.8s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    animation: fadeUp 0.8s 0.3s ease both;
+  }
+
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: linear-gradient(135deg, var(--indigo-bright), #5858E0);
+    border: none;
+    border-radius: 14px;
+    color: white;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    box-shadow: 0 4px 24px rgba(108,99,255,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
+  }
+
+  .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 32px rgba(108,99,255,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
+  }
+
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 32px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    color: var(--text-primary);
+    font-size: 16px;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all 0.3s;
+  }
+
+  .btn-secondary:hover {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.12);
+    transform: translateY(-2px);
+  }
+
+  /* ─── ICON HERO ─── */
+  .icon-hero {
+    position: relative;
+    margin: 48px 0 0;
+    animation: fadeUp 0.8s 0.4s ease both;
+  }
+
+  .icon-hero svg {
+    filter: drop-shadow(0 20px 60px rgba(108,99,255,0.25));
+  }
+
+  .icon-ring {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 280px;
+    height: 280px;
+    border-radius: 50%;
+    border: 1px solid rgba(108,99,255,0.1);
+    animation: pulse-ring 4s ease-in-out infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%, 100% { opacity: 0.3; transform: translate(-50%, -50%) scale(1); }
+    50% { opacity: 0.6; transform: translate(-50%, -50%) scale(1.05); }
+  }
+
+  /* ─── SECTION LAYOUT ─── */
+  section {
+    position: relative;
+    padding: 120px 24px;
+  }
+
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  .section-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--indigo-bright);
+    margin-bottom: 12px;
+  }
+
+  .section-title {
+    font-family: 'Newsreader', Georgia, serif;
+    font-size: clamp(32px, 5vw, 48px);
+    font-weight: 400;
+    line-height: 1.15;
+    letter-spacing: -0.025em;
+    margin-bottom: 20px;
+  }
+
+  .section-desc {
+    font-size: 17px;
+    color: var(--text-secondary);
+    max-width: 560px;
+    line-height: 1.6;
+  }
+
+  /* ─── PRIVACY SECTION ─── */
+  .privacy-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 56px;
+  }
+
+  .privacy-card {
+    padding: 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    transition: all 0.35s;
+  }
+
+  .privacy-card:hover {
+    border-color: var(--border-glass);
+    background: var(--bg-elevated);
+    transform: translateY(-4px);
+  }
+
+  .privacy-card .icon-wrap {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(108,99,255,0.15), rgba(108,99,255,0.05));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 22px;
+  }
+
+  .privacy-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .privacy-card p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.6;
+  }
+
+  /* ─── HOW IT WORKS ─── */
+  .how-steps {
+    display: flex;
+    gap: 1px;
+    margin-top: 56px;
+    background: var(--border-subtle);
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  .how-step {
+    flex: 1;
+    padding: 40px 32px;
+    background: var(--bg-card);
+    position: relative;
+  }
+
+  .how-step .step-num {
+    font-size: 64px;
+    font-family: 'Newsreader', Georgia, serif;
+    font-weight: 400;
+    color: var(--indigo-mid);
+    line-height: 1;
+    margin-bottom: 16px;
+  }
+
+  .how-step h3 {
+    font-size: 17px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .how-step p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .how-step .hotkey {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 12px;
+  }
+
+  .hotkey kbd {
+    padding: 4px 10px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    box-shadow: 0 2px 0 rgba(0,0,0,0.3);
+  }
+
+  .hotkey span { color: var(--text-muted); font-size: 13px; }
+
+  /* ─── ICON STATES DEMO ─── */
+  .icon-states-grid {
+    display: flex;
+    justify-content: center;
+    gap: 40px;
+    margin-top: 56px;
+    flex-wrap: wrap;
+  }
+
+  .icon-state-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    padding: 32px 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 24px;
+    transition: all 0.35s;
+    min-width: 200px;
+  }
+
+  .icon-state-card:hover {
+    border-color: var(--border-glass);
+    background: var(--bg-elevated);
+    transform: translateY(-4px);
+  }
+
+  .icon-state-card .icon-surface {
+    width: 120px;
+    height: 120px;
+    border-radius: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .icon-state-card .state-label {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .icon-state-card .state-desc {
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  /* Recording bar pulse animation */
+  @keyframes rec-bar-pulse-1 { 0%,100%{height:15.3px;y:72.9px} 50%{height:20.7px;y:70.2px} }
+  @keyframes rec-bar-pulse-2 { 0%,100%{height:25.8px;y:64.1px} 50%{height:34.8px;y:59.6px} }
+  @keyframes rec-bar-pulse-3 { 0%,100%{height:20px;y:69px} 50%{height:27px;y:65.5px} }
+  @keyframes rec-bar-pulse-4 { 0%,100%{height:29.3px;y:61.7px} 50%{height:39.6px;y:56.6px} }
+  @keyframes rec-bar-pulse-5 { 0%,100%{height:11.7px;y:74.7px} 50%{height:15.8px;y:72.7px} }
+
+  .rec-anim-bar-1 { animation: rec-bar-pulse-1 0.5s ease-in-out infinite; }
+  .rec-anim-bar-2 { animation: rec-bar-pulse-2 0.6s 0.1s ease-in-out infinite; }
+  .rec-anim-bar-3 { animation: rec-bar-pulse-3 0.55s 0.05s ease-in-out infinite; }
+  .rec-anim-bar-4 { animation: rec-bar-pulse-4 0.65s 0.15s ease-in-out infinite; }
+  .rec-anim-bar-5 { animation: rec-bar-pulse-5 0.5s 0.08s ease-in-out infinite; }
+
+  @keyframes rec-glow-pulse {
+    0%,100% { opacity: 0.12; }
+    50% { opacity: 0.28; }
+  }
+
+  .rec-glow { animation: rec-glow-pulse 1.4s ease-in-out infinite; }
+
+  /* Processing spin animation */
+  @keyframes proc-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .proc-arc {
+    animation: proc-spin 1.2s linear infinite;
+    transform-origin: 60px 79px;
+  }
+
+  /* ─── TRANSLATION SECTION ─── */
+  .translate-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 24px;
+    margin-top: 56px;
+    flex-wrap: wrap;
+  }
+
+  .translate-box {
+    padding: 24px 32px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 16px;
+    text-align: center;
+    min-width: 180px;
+  }
+
+  .translate-box .lang {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+
+  .translate-box .example {
+    font-size: 15px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  .translate-arrow {
+    font-size: 24px;
+    color: var(--indigo-bright);
+  }
+
+  /* ─── MODELS ─── */
+  .models-table {
+    margin-top: 56px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    overflow: hidden;
+    background: var(--bg-card);
+  }
+
+  .models-table table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .models-table th {
+    text-align: left;
+    padding: 16px 24px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+  }
+
+  .models-table td {
+    padding: 14px 24px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid rgba(255,255,255,0.02);
+  }
+
+  .models-table tr:last-child td { border-bottom: none; }
+
+  .models-table .model-name {
+    color: var(--text-primary);
+    font-weight: 600;
+  }
+
+  .models-table .tag {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .tag-default {
+    background: rgba(108,99,255,0.12);
+    color: var(--indigo-glow);
+  }
+
+  .tag-fast {
+    background: rgba(52,199,89,0.1);
+    color: #34C759;
+  }
+
+  .tag-quality {
+    background: rgba(255,159,10,0.1);
+    color: #FF9F0A;
+  }
+
+  .tag-llm {
+    background: rgba(90,200,250,0.1);
+    color: var(--accent-teal);
+  }
+
+  /* ─── INSTALL SECTION ─── */
+  .install-section {
+    text-align: center;
+  }
+
+  .install-card {
+    margin: 56px auto 0;
+    max-width: 640px;
+    padding: 48px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-glass);
+    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .install-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--indigo-bright), transparent);
+    opacity: 0.5;
+  }
+
+  .install-card .code-block {
+    background: var(--bg-deep);
+    border: 1px solid var(--border-subtle);
+    border-radius: 14px;
+    padding: 24px;
+    text-align: left;
+    margin: 24px 0;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--text-secondary);
+    overflow-x: auto;
+  }
+
+  .code-block .comment { color: var(--text-muted); }
+  .code-block .cmd { color: var(--indigo-glow); }
+  .code-block .flag { color: var(--accent-teal); }
+
+  .install-card .or-divider {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin: 24px 0;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .or-divider::before, .or-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+  }
+
+  /* ─── ICON SIZES ROW ─── */
+  .icon-sizes-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 24px;
+    margin-top: 48px;
+    flex-wrap: wrap;
+  }
+
+  .icon-sizes-row .size-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .icon-sizes-row .size-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 48px 24px;
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+  }
+
+  footer p {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  footer a {
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  footer a:hover { color: var(--indigo-bright); }
+
+  /* ─── ANIMATIONS ─── */
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(24px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .reveal {
+    opacity: 0;
+    transform: translateY(32px);
+    transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 768px) {
+    nav { padding: 12px 16px; }
+    .nav-links a:not(.btn-github) { display: none; }
+    .privacy-grid { grid-template-columns: 1fr; }
+    .how-steps { flex-direction: column; }
+    section { padding: 80px 20px; }
+    .install-card { padding: 32px 24px; }
+    .icon-demo-grid { gap: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-brand">
+    <svg width="28" height="28" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="nav-bg" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stop-color="#2D2B55"/>
+          <stop offset="100%" stop-color="#15132B"/>
+        </linearGradient>
+        <linearGradient id="nav-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+        </linearGradient>
+      </defs>
+      <rect width="120" height="120" rx="26" fill="url(#nav-bg)"/>
+      <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#nav-glass)" fill-rule="evenodd"/>
+      <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+      <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+      <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+      <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+      <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+    </svg>
+    <span>LocalWhisper</span>
+  </a>
+  <div class="nav-links">
+    <a href="#privacy">Privacy</a>
+    <a href="#how">How it works</a>
+    <a href="#translation">Translation</a>
+    <a href="#models">Models</a>
+    <a href="#install">Install</a>
+    <a href="https://github.com/gnlcsvn/local-whisper" class="btn-github" target="_blank">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow-2"></div>
+
+  <div class="hero-badge">
+    <span class="dot"></span>
+    100% offline · Apple Silicon native
+  </div>
+
+  <h1>Dictation that<br><em>never leaves</em><br>your Mac</h1>
+
+  <p class="hero-sub">
+    Press a hotkey, speak naturally, release. Your words appear at the cursor — transcribed locally with mlx-whisper. No cloud. No account. No data collected. Ever.
+  </p>
+
+  <div class="hero-actions">
+    <a href="https://github.com/gnlcsvn/local-whisper/releases/latest/download/LocalWhisper.dmg" class="btn-primary">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download .dmg
+    </a>
+    <a href="https://github.com/gnlcsvn/local-whisper" class="btn-secondary" target="_blank">
+      View Source
+    </a>
+  </div>
+
+  <!-- Hero Icon -->
+  <div class="icon-hero">
+    <div class="icon-ring" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;border:1px solid rgba(108,99,255,0.08);animation:pulse-ring 4s ease-in-out infinite;"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:50%;border:1px solid rgba(108,99,255,0.05);animation:pulse-ring 4s 1s ease-in-out infinite;"></div>
+    <svg width="200" height="200" viewBox="0 0 120 120">
+      <defs>
+        <linearGradient id="hero-bg" x1="0.5" y1="0" x2="0.5" y2="1">
+          <stop offset="0%" stop-color="#2D2B55"/>
+          <stop offset="100%" stop-color="#15132B"/>
+        </linearGradient>
+        <linearGradient id="hero-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+          <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+          <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+        </linearGradient>
+        <linearGradient id="hero-spec" x1="0.2" y1="0" x2="0.8" y2="0.5">
+          <stop offset="0%" stop-color="white" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="hero-shadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.3"/></filter>
+      </defs>
+      <rect width="120" height="120" rx="26" fill="url(#hero-bg)"/>
+      <g filter="url(#hero-shadow)">
+        <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#hero-glass)" fill-rule="evenodd"/>
+        <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" fill-rule="evenodd"/>
+      </g>
+      <ellipse cx="52" cy="12" rx="28" ry="8" fill="url(#hero-spec)" opacity="0.3"/>
+      <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+      <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+      <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+      <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+      <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+    </svg>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section id="privacy">
+  <div class="container reveal">
+    <div class="section-label">Zero-trust privacy</div>
+    <div class="section-title">Your voice stays<br>on your hardware</div>
+    <p class="section-desc">
+      No servers. No API keys. No analytics. Audio goes from microphone to mlx-whisper to your cursor — then it's gone. Nothing is ever written to disk.
+    </p>
+
+    <div class="privacy-grid">
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f512;</div>
+        <h3>No network requests</h3>
+        <p>After the initial model download from HuggingFace, LocalWhisper never makes a single network call. Verify it yourself — it's open source.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f4be;</div>
+        <h3>RAM-only processing</h3>
+        <p>Audio is captured as float32 in memory, transcribed, and immediately discarded. Nothing is ever saved to disk — not even temporarily.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f513;</div>
+        <h3>Fully open source</h3>
+        <p>Every line of code is on GitHub. Audit the source, build it yourself, verify every claim. Transparency is not optional — it's the architecture.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section id="how" style="background: var(--bg-card);">
+  <div class="container reveal">
+    <div class="section-label">Workflow</div>
+    <div class="section-title">Three keystrokes.<br>That's the entire UX.</div>
+
+    <div class="how-steps">
+      <div class="how-step">
+        <div class="step-num">1</div>
+        <h3>Press the hotkey</h3>
+        <p>Recording starts instantly. The menubar icon animates with pulsing bars and a live timer.</p>
+        <div class="hotkey">
+          <kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>D</kbd>
+        </div>
+      </div>
+      <div class="how-step">
+        <div class="step-num">2</div>
+        <h3>Speak naturally</h3>
+        <p>Talk at your normal pace in any supported language. Auto-stops after 2 minutes, or press the hotkey again.</p>
+      </div>
+      <div class="how-step">
+        <div class="step-num">3</div>
+        <h3>Text appears</h3>
+        <p>mlx-whisper transcribes locally on your GPU. The text is pasted at your cursor position in any app.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ICON STATES DEMO -->
+<section id="icons">
+  <div class="container reveal">
+    <div class="section-label">App icon</div>
+    <div class="section-title">A lock that listens.<br>Animated, alive.</div>
+    <p class="section-desc">
+      The lock + waveform icon reflects the current state with live animations. Adapts to light and dark mode automatically.
+    </p>
+
+    <div class="icon-states-grid">
+      <!-- Idle -->
+      <div class="icon-state-card">
+        <div class="icon-surface" style="background: linear-gradient(135deg, #2D2B55, #15132B);">
+          <svg viewBox="0 0 120 120" width="110" height="110">
+            <defs>
+              <linearGradient id="idle-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+              </linearGradient>
+            </defs>
+            <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#idle-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+            <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+            <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+            <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+            <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+            <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          </svg>
+        </div>
+        <div class="state-label">Idle</div>
+        <div class="state-desc">Static lock + waveform<br>Ready for input</div>
+      </div>
+
+      <!-- Recording -->
+      <div class="icon-state-card">
+        <div class="icon-surface" style="background: linear-gradient(135deg, #2D2B55, #15132B);">
+          <svg viewBox="0 0 120 120" width="110" height="110">
+            <defs>
+              <linearGradient id="rec-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+              </linearGradient>
+              <filter id="rec-glow-f"><feGaussianBlur stdDeviation="5"/></filter>
+            </defs>
+            <!-- Red glow -->
+            <ellipse class="rec-glow" cx="60" cy="80" rx="32" ry="18" fill="#FF453A" opacity="0.2" filter="url(#rec-glow-f)"/>
+            <!-- Lock shell -->
+            <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#rec-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+            <!-- Animated red waveform bars -->
+            <rect class="rec-anim-bar-1" x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#FF8A80" opacity="0.55"/>
+            <rect class="rec-anim-bar-2" x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#FF453A" opacity="0.92"/>
+            <rect class="rec-anim-bar-3" x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#FF8A80" opacity="0.55"/>
+            <rect class="rec-anim-bar-4" x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#FF453A" opacity="0.92"/>
+            <rect class="rec-anim-bar-5" x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#FF8A80" opacity="0.55"/>
+          </svg>
+        </div>
+        <div class="state-label" style="color: #FF453A;">Recording</div>
+        <div class="state-desc">Bars pulse with red glow<br>Active voice capture</div>
+      </div>
+
+      <!-- Processing -->
+      <div class="icon-state-card">
+        <div class="icon-surface" style="background: linear-gradient(135deg, #2D2B55, #15132B);">
+          <svg viewBox="0 0 120 120" width="110" height="110">
+            <defs>
+              <linearGradient id="proc-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+                <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+                <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+              </linearGradient>
+              <filter id="proc-glow-f"><feGaussianBlur stdDeviation="5"/></filter>
+            </defs>
+            <!-- Purple glow -->
+            <ellipse cx="60" cy="80" rx="32" ry="18" fill="#BF5AF2" opacity="0.15" filter="url(#proc-glow-f)"/>
+            <!-- Lock shell -->
+            <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#proc-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+            <!-- Spinner track -->
+            <circle cx="60" cy="79" r="18" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="2"/>
+            <!-- Spinning arc -->
+            <circle class="proc-arc" cx="60" cy="79" r="18" fill="none" stroke="#BF5AF2" stroke-width="2.5" stroke-dasharray="28 85" stroke-linecap="round" opacity="0.85"/>
+          </svg>
+        </div>
+        <div class="state-label" style="color: #BF5AF2;">Processing</div>
+        <div class="state-desc">Spinner replaces bars<br>Transcribing with Whisper</div>
+      </div>
+    </div>
+
+    <!-- Size row showing the icon at various sizes -->
+    <div class="icon-sizes-row">
+      <div class="size-item">
+        <svg viewBox="0 0 120 120" width="16" height="16">
+          <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
+          <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+        </svg>
+        <span class="size-label">16px</span>
+      </div>
+      <div class="size-item">
+        <svg viewBox="0 0 120 120" width="22" height="22">
+          <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
+          <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+        </svg>
+        <span class="size-label">22px</span>
+      </div>
+      <div class="size-item">
+        <svg viewBox="0 0 120 120" width="40" height="40">
+          <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
+          <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+        </svg>
+        <span class="size-label">40px</span>
+      </div>
+      <div class="size-item">
+        <svg viewBox="0 0 120 120" width="64" height="64">
+          <defs>
+            <linearGradient id="sz-bg" x1="0.5" y1="0" x2="0.5" y2="1">
+              <stop offset="0%" stop-color="#2D2B55"/>
+              <stop offset="100%" stop-color="#15132B"/>
+            </linearGradient>
+            <linearGradient id="sz-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+            </linearGradient>
+          </defs>
+          <rect width="120" height="120" rx="26" fill="url(#sz-bg)"/>
+          <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#sz-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+          <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+        </svg>
+        <span class="size-label">64px</span>
+      </div>
+      <div class="size-item">
+        <svg viewBox="0 0 120 120" width="120" height="120">
+          <defs>
+            <linearGradient id="sz2-bg" x1="0.5" y1="0" x2="0.5" y2="1">
+              <stop offset="0%" stop-color="#2D2B55"/>
+              <stop offset="100%" stop-color="#15132B"/>
+            </linearGradient>
+            <linearGradient id="sz2-glass" x1="0.3" y1="0" x2="0.6" y2="1">
+              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
+              <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
+            </linearGradient>
+            <filter id="sz2-shadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.3"/></filter>
+          </defs>
+          <rect width="120" height="120" rx="26" fill="url(#sz2-bg)"/>
+          <g filter="url(#sz2-shadow)">
+            <path d="M 36.8 49.2 L 41.1 49.2 L 41.1 37.3 A 19 19 0 0 1 78.9 37.3 L 78.9 49.2 L 83.2 49.2 Q 92.4 49.2 92.4 58.6 L 92.4 95 Q 92.4 104.4 83.2 104.4 L 36.8 104.4 Q 27.6 104.4 27.6 95 L 27.6 58.6 Q 27.6 49.2 36.8 49.2 Z M 50 49.2 L 50 37.3 A 11 11 0 0 1 70 37.3 L 70 49.2 Z" fill="url(#sz2-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
+          </g>
+          <rect x="35.2" y="72.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="46.3" y="64.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="57.4" y="69" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+          <rect x="68.5" y="61.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
+          <rect x="79.6" y="74.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
+        </svg>
+        <span class="size-label">120px</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TRANSLATION -->
+<section id="translation" style="background: var(--bg-card);">
+  <div class="container reveal">
+    <div class="section-label">Translation</div>
+    <div class="section-title">Speak in one language,<br>type in another</div>
+    <p class="section-desc">
+      Any-to-any translation powered by a local LLM (Llama 3.2 3B). For input-to-English, Whisper handles it natively — no extra model needed.
+    </p>
+
+    <div class="translate-flow">
+      <div class="translate-box">
+        <div class="lang">Deutsch</div>
+        <div class="example">"Hallo, wie geht es dir?"</div>
+      </div>
+      <div class="translate-arrow">&rarr;</div>
+      <div class="translate-box" style="border-color: var(--border-glass);">
+        <div class="lang" style="color: var(--indigo-glow);">English</div>
+        <div class="example">"Hello, how are you?"</div>
+      </div>
+    </div>
+
+    <div class="privacy-grid" style="margin-top: 40px;">
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f310;</div>
+        <h3>12 languages</h3>
+        <p>Deutsch, English, Fran&ccedil;ais, Espa&ntilde;ol, Italiano, Portugu&ecirc;s, Nederlands, Polski, Japanese, Chinese, Korean, Russian.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f9e0;</div>
+        <h3>Runs locally</h3>
+        <p>The translation LLM (1.8 GB, 4-bit quantized) runs entirely on Apple Silicon via mlx-lm. No API calls, no cloud.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x26a1;</div>
+        <h3>Auto-download</h3>
+        <p>The translation model downloads automatically on first use. Toggle translation on/off from the menubar — the menu stays open for quick switching.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MODELS -->
+<section id="models">
+  <div class="container reveal">
+    <div class="section-label">Whisper models</div>
+    <div class="section-title">Pick your balance of<br>speed and accuracy</div>
+    <p class="section-desc">
+      All models run natively on Apple Silicon via mlx-whisper. Downloaded once from HuggingFace, then fully offline forever.
+    </p>
+
+    <div class="models-table">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>Size</th>
+            <th>Speed</th>
+            <th>Languages</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="model-name">Tiny</td>
+            <td>75 MB</td>
+            <td>Fastest</td>
+            <td>99</td>
+            <td><span class="tag tag-fast">Fast</span></td>
+          </tr>
+          <tr>
+            <td class="model-name">Small</td>
+            <td>460 MB</td>
+            <td>Fast</td>
+            <td>99</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td class="model-name">Turbo</td>
+            <td>1.5 GB</td>
+            <td>Balanced</td>
+            <td>99</td>
+            <td><span class="tag tag-default">Default</span></td>
+          </tr>
+          <tr>
+            <td class="model-name">Medium</td>
+            <td>1.5 GB</td>
+            <td>Slower</td>
+            <td>99</td>
+            <td><span class="tag tag-quality">Quality</span></td>
+          </tr>
+          <tr>
+            <td class="model-name">Large</td>
+            <td>3.0 GB</td>
+            <td>Slowest</td>
+            <td>99</td>
+            <td><span class="tag tag-quality">Best</span></td>
+          </tr>
+          <tr>
+            <td class="model-name">Translation LLM</td>
+            <td>1.8 GB</td>
+            <td>&#x2014;</td>
+            <td>12</td>
+            <td><span class="tag tag-llm">LLM</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- INSTALL -->
+<section id="install" class="install-section" style="background: var(--bg-card);">
+  <div class="container reveal">
+    <div class="section-label">Get started</div>
+    <div class="section-title">Up and running in<br>under a minute</div>
+
+    <div class="install-card">
+      <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 4px;">Download the app</h3>
+      <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
+        Grab the .dmg, drag to Applications, grant Mic & Accessibility permissions. Done.
+      </p>
+      <a href="https://github.com/gnlcsvn/local-whisper/releases/latest/download/LocalWhisper.dmg" class="btn-primary" style="width: 100%; justify-content: center;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Download from GitHub Releases
+      </a>
+
+      <div class="or-divider">Or build from source</div>
+
+      <div class="code-block">
+<span class="comment"># Clone & install</span>
+<span class="cmd">brew</span> install ffmpeg
+<span class="cmd">git</span> clone https://github.com/gnlcsvn/local-whisper.git
+<span class="cmd">cd</span> local-whisper
+<span class="cmd">python</span> <span class="flag">-m</span> venv venv && <span class="cmd">source</span> venv/bin/activate
+<span class="cmd">pip</span> install <span class="flag">-r</span> requirements.txt
+
+<span class="comment"># Run directly</span>
+<span class="cmd">python</span> main.py
+
+<span class="comment"># Or build .app</span>
+<span class="cmd">pip</span> install pyinstaller
+<span class="cmd">pyinstaller</span> LocalWhisper.spec <span class="flag">--noconfirm</span>
+      </div>
+
+      <p style="font-size: 12px; color: var(--text-muted); margin-top: 16px;">
+        Requires macOS 13+ &middot; Apple Silicon &middot; Python 3.10+ &middot; ffmpeg
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <p>
+    Built by <a href="https://github.com/gnlcsvn" target="_blank">Gian-Luca Caserini</a> &middot;
+    <a href="https://github.com/gnlcsvn/local-whisper" target="_blank">Source on GitHub</a> &middot;
+    Free & open source
+  </p>
+</footer>
+
+<script>
+  // Scroll reveal
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+
+</body>
+</html>

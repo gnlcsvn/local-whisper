@@ -31,6 +31,7 @@ from transcriber import WhisperTranscriber
 from translator import LLMProcessor
 from inserter import TextInserter, InsertionError
 from hotkey import HotkeyListener
+from statusbar_animator import StatusBarAnimator
 
 
 def _resource_path(relative: str) -> str:
@@ -50,11 +51,11 @@ class State(enum.Enum):
 
 # When using an icon, title is text shown *next to* the icon
 MENUBAR_TITLES = {
-    State.IDLE: "",                      # icon only
-    State.DOWNLOADING: "\u2b07",         # ⬇
-    State.RECORDING: "\U0001f534 Rec",   # 🔴 Rec
-    State.PROCESSING: "\u23f3",          # ⏳
-    State.INSERTING: "\u23f3",           # ⏳
+    State.IDLE: "",
+    State.DOWNLOADING: "",
+    State.RECORDING: "Rec",
+    State.PROCESSING: "",
+    State.INSERTING: "",
 }
 
 STATUS_LABELS = {
@@ -256,7 +257,7 @@ def _check_accessibility_permission() -> bool:
 
 class LocalWhisperApp(rumps.App):
     def __init__(self):
-        icon_path = _resource_path("statusbar_iconTemplate@2x.png")
+        icon_path = _resource_path(os.path.join("icons", "statusbar_idleTemplate.png"))
         super().__init__(
             "LocalWhisper",
             title=MENUBAR_TITLES[State.IDLE],
@@ -264,6 +265,8 @@ class LocalWhisperApp(rumps.App):
             template=True,
             quit_button=None,
         )
+
+        self._animator = StatusBarAnimator(self, _resource_path)
 
         self._config = Config()
         _load_settings(self._config)
@@ -611,9 +614,6 @@ class LocalWhisperApp(rumps.App):
             if is_recording:
                 elapsed = time.time() - self._recording_start
                 mins, secs = divmod(int(elapsed), 60)
-                # Blink the red dot every 0.5s for visual pulse
-                dot = "\U0001f534" if int(elapsed * 2) % 2 == 0 else "\u26ab"
-                self.title = f"{dot} Rec"
                 self._status_item.title = f"Recording\u2026  {mins}:{secs:02d}"
             return
 
@@ -648,6 +648,16 @@ class LocalWhisperApp(rumps.App):
         update.update(extra)
         with self._pending_lock:
             self._pending_ui = update
+
+        # Drive the status bar icon animation
+        if state == State.IDLE:
+            self._animator.stop()
+        elif state == State.DOWNLOADING:
+            self._animator.start_downloading()
+        elif state == State.RECORDING:
+            self._animator.start_recording()
+        elif state in (State.PROCESSING, State.INSERTING):
+            self._animator.start_processing()
 
     def _notify(self, message: str) -> None:
         with self._pending_lock:

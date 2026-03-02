@@ -1,196 +1,226 @@
-"""Generate an abstract, modern app icon for LocalWhisper."""
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+"""Generate the LocalWhisper app icon: lock + waveform design.
+
+Full-bleed 1024x1024 — macOS applies its own squircle mask.
+"""
+from PIL import Image, ImageDraw, ImageFilter
 import math
 import os
 
 SIZE = 1024
-CENTER = SIZE // 2
+
+
+def _rounded_rect_points(x, y, w, h, r, steps=8):
+    """Generate points for a rounded rectangle path."""
+    pts = []
+    corners = [
+        (x + w - r, y + r, -90, 0),       # top-right
+        (x + w - r, y + h - r, 0, 90),     # bottom-right
+        (x + r, y + h - r, 90, 180),        # bottom-left
+        (x + r, y + r, 180, 270),            # top-left
+    ]
+    # Top edge
+    pts.append((x + r, y))
+    pts.append((x + w - r, y))
+    # top-right corner
+    for i in range(steps + 1):
+        a = math.radians(-90 + 90 * i / steps)
+        pts.append((x + w - r + r * math.cos(a), y + r + r * math.sin(a)))
+    # Right edge
+    pts.append((x + w, y + h - r))
+    # bottom-right corner
+    for i in range(steps + 1):
+        a = math.radians(0 + 90 * i / steps)
+        pts.append((x + w - r + r * math.cos(a), y + h - r + r * math.sin(a)))
+    # Bottom edge
+    pts.append((x + r, y + h))
+    # bottom-left corner
+    for i in range(steps + 1):
+        a = math.radians(90 + 90 * i / steps)
+        pts.append((x + r + r * math.cos(a), y + h - r + r * math.sin(a)))
+    # Left edge
+    pts.append((x, y + r))
+    # top-left corner
+    for i in range(steps + 1):
+        a = math.radians(180 + 90 * i / steps)
+        pts.append((x + r + r * math.cos(a), y + r + r * math.sin(a)))
+    return pts
+
+
+def _draw_arch(draw, cx, top_y, outer_w, inner_w, leg_bottom, color, steps=32):
+    """Draw the lock arch (U-shape) with an arch hole."""
+    # Outer arch path
+    outer_pts = []
+    # Left leg bottom
+    outer_pts.append((cx - outer_w, leg_bottom))
+    # Left leg up to arch start
+    outer_pts.append((cx - outer_w, top_y + outer_w))
+    # Arch curve (semicircle, top)
+    for i in range(steps + 1):
+        a = math.radians(180 + 180 * i / steps)
+        outer_pts.append((cx + outer_w * math.cos(a), top_y + outer_w + outer_w * math.sin(a)))
+    # Right leg down
+    outer_pts.append((cx + outer_w, leg_bottom))
+    # Now inner cutout (reverse direction for hole)
+    outer_pts.append((cx + inner_w, leg_bottom))
+    outer_pts.append((cx + inner_w, top_y + outer_w))
+    for i in range(steps + 1):
+        a = math.radians(0 + 180 * i / steps)  # reverse
+        outer_pts.append((cx + inner_w * math.cos(a), top_y + outer_w + inner_w * math.sin(a)))
+    outer_pts.append((cx - inner_w, leg_bottom))
+    outer_pts.append((cx - outer_w, leg_bottom))
+
+    draw.polygon(outer_pts, fill=color)
 
 
 def make_icon():
-    # Start with transparent
+    # ── Geometry (in 120-unit space, scaled to 1024) ──
+    S = SIZE / 120.0
+
+    # Background: deep indigo gradient, fills entire canvas (full-bleed)
     img = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-
-    # Rounded rect mask
-    radius = int(SIZE * 0.22)
-    mask = Image.new("L", (SIZE, SIZE), 0)
-    mask_draw = ImageDraw.Draw(mask)
-    mask_draw.rounded_rectangle([0, 0, SIZE - 1, SIZE - 1], radius=radius, fill=255)
-
-    # Gradient background: deep indigo to near-black
-    bg = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    bg = Image.new("RGBA", (SIZE, SIZE))
     for y in range(SIZE):
         t = y / SIZE
-        # Deep indigo gradient
-        r = int(18 * (1 - t) + 8 * t)
-        g = int(10 * (1 - t) + 5 * t)
-        b = int(40 * (1 - t) + 20 * t)
+        r = int(45 * (1 - t) + 21 * t)    # #2D -> #15
+        g = int(43 * (1 - t) + 19 * t)     # #2B -> #13
+        b = int(85 * (1 - t) + 43 * t)     # #55 -> #2B
         for x in range(SIZE):
             bg.putpixel((x, y), (r, g, b, 255))
+    img = Image.alpha_composite(img, bg)
 
-    # Apply rounded mask
-    result = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    result.paste(bg, mask=mask)
+    # ── Lock body ──
+    body_l = int(26 * S)
+    body_r = int(94 * S)
+    body_t = int(48 * S)
+    body_b = int(106 * S)
+    body_rad = int(12 * S)
+    body_w = body_r - body_l
+    body_h = body_b - body_t
 
-    # --- Draw abstract sound waveform ring ---
-    wave_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    wave_draw = ImageDraw.Draw(wave_layer)
+    # Glass fill for the lock body (semi-transparent white)
+    lock_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    lock_draw = ImageDraw.Draw(lock_layer)
 
-    # Central orb - soft glowing circle
-    orb_r = 140
-    orb_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    orb_draw = ImageDraw.Draw(orb_layer)
-
-    # Multi-layer glow
-    for i in range(80, 0, -1):
-        alpha = int(2.5 * (80 - i))
-        if alpha > 255:
-            alpha = 255
-        r = orb_r + i * 2
-        orb_draw.ellipse(
-            [CENTER - r, CENTER - 40 - r, CENTER + r, CENTER - 40 + r],
-            fill=(100, 80, 255, min(alpha // 3, 60)),
-        )
-
-    # Core orb
-    orb_draw.ellipse(
-        [CENTER - orb_r, CENTER - 40 - orb_r, CENTER + orb_r, CENTER - 40 + orb_r],
-        fill=(130, 110, 255, 200),
-    )
-    # Bright inner
-    inner_r = orb_r - 30
-    orb_draw.ellipse(
-        [CENTER - inner_r, CENTER - 40 - inner_r, CENTER + inner_r, CENTER - 40 + inner_r],
-        fill=(180, 170, 255, 220),
-    )
-    # White hot center
-    core_r = 50
-    orb_draw.ellipse(
-        [CENTER - core_r, CENTER - 40 - core_r, CENTER + core_r, CENTER - 40 + core_r],
-        fill=(230, 225, 255, 240),
+    # Body rounded rectangle
+    lock_draw.rounded_rectangle(
+        [body_l, body_t, body_r, body_b],
+        radius=body_rad,
+        fill=(255, 255, 255, 38),  # ~0.15 opacity glass
     )
 
-    result = Image.alpha_composite(result, orb_layer)
+    # ── Lock arch ──
+    arch_cx = int(60 * S)
+    arch_outer_w = int(19 * S)
+    arch_inner_w = int(11 * S)
+    arch_top_y = int(20 * S)
 
-    # --- Waveform bars in a circular arrangement ---
+    _draw_arch(
+        lock_draw,
+        cx=arch_cx,
+        top_y=arch_top_y,
+        outer_w=arch_outer_w,
+        inner_w=arch_inner_w,
+        leg_bottom=body_t,
+        color=(255, 255, 255, 38),
+    )
+
+    # Subtle border on the lock shape
+    border_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    border_draw = ImageDraw.Draw(border_layer)
+    # Body border
+    border_draw.rounded_rectangle(
+        [body_l, body_t, body_r, body_b],
+        radius=body_rad,
+        fill=None,
+        outline=(255, 255, 255, 40),
+        width=max(1, int(0.7 * S)),
+    )
+    # Arch border
+    _draw_arch(
+        border_draw,
+        cx=arch_cx,
+        top_y=arch_top_y,
+        outer_w=arch_outer_w,
+        inner_w=arch_inner_w,
+        leg_bottom=body_t,
+        color=(255, 255, 255, 30),
+    )
+
+    img = Image.alpha_composite(img, lock_layer)
+    img = Image.alpha_composite(img, border_layer)
+
+    # ── Arch hole fill (background color to punch out) ──
+    hole_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    hole_draw = ImageDraw.Draw(hole_layer)
+    # Fill the inner arch area with the dark background color
+    hole_pts = []
+    hole_pts.append((arch_cx - arch_inner_w, body_t))
+    hole_pts.append((arch_cx - arch_inner_w, arch_top_y + arch_outer_w))
+    steps = 32
+    for i in range(steps + 1):
+        a = math.radians(180 + 180 * i / steps)
+        hole_pts.append((
+            arch_cx + arch_inner_w * math.cos(a),
+            arch_top_y + arch_outer_w + arch_inner_w * math.sin(a),
+        ))
+    hole_pts.append((arch_cx + arch_inner_w, body_t))
+    hole_draw.polygon(hole_pts, fill=(21, 19, 43, 255))
+    img = Image.alpha_composite(img, hole_layer)
+
+    # ── Waveform bars inside lock body ──
     bars_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
     bars_draw = ImageDraw.Draw(bars_layer)
 
-    num_bars = 48
-    base_radius = 200
-    max_bar_height = 160
-    bar_width_angle = 2.5  # degrees
+    bar_cy = int(79 * S)  # center of bars (body center + slight offset)
+    bar_data = [
+        {"x": 35.2, "h": 15.3, "color": (90, 200, 250), "alpha": 153},   # #5AC8FA, 0.6
+        {"x": 46.3, "h": 25.8, "color": (108, 99, 255), "alpha": 242},    # #6C63FF, 0.95
+        {"x": 57.4, "h": 20.0, "color": (90, 200, 250), "alpha": 153},    # #5AC8FA, 0.6
+        {"x": 68.5, "h": 29.3, "color": (108, 99, 255), "alpha": 242},    # #6C63FF, 0.95
+        {"x": 79.6, "h": 11.7, "color": (90, 200, 250), "alpha": 153},    # #5AC8FA, 0.6
+    ]
+    bar_w = 6.6
 
-    for i in range(num_bars):
-        angle = (i / num_bars) * 360
-        angle_rad = math.radians(angle)
-
-        # Create organic waveform pattern (multiple sine waves combined)
-        wave = (
-            math.sin(angle_rad * 3) * 0.4
-            + math.sin(angle_rad * 7 + 1.2) * 0.25
-            + math.sin(angle_rad * 11 + 2.5) * 0.15
-            + math.sin(angle_rad * 5 + 0.7) * 0.2
-        )
-        wave = (wave + 1) / 2  # normalize to 0-1
-        wave = max(0.15, wave)  # minimum bar height
-
-        bar_h = int(wave * max_bar_height)
-
-        # Bar start and end points (radial)
-        inner_r = base_radius
-        outer_r = base_radius + bar_h
-
-        # Colors: gradient from purple to cyan based on position
-        t = i / num_bars
-        if t < 0.5:
-            # Purple to blue
-            cr = int(160 * (1 - t * 2) + 60 * (t * 2))
-            cg = int(100 * (1 - t * 2) + 180 * (t * 2))
-            cb = 255
-        else:
-            # Blue to cyan
-            t2 = (t - 0.5) * 2
-            cr = int(60 * (1 - t2) + 160 * t2)
-            cg = int(180 * (1 - t2) + 100 * t2)
-            cb = 255
-
-        alpha = int(180 + wave * 75)
-        if alpha > 255:
-            alpha = 255
-
-        # Draw bar as a thick line
-        x1 = CENTER + inner_r * math.cos(angle_rad)
-        y1 = CENTER - 40 + inner_r * math.sin(angle_rad)
-        x2 = CENTER + outer_r * math.cos(angle_rad)
-        y2 = CENTER - 40 + outer_r * math.sin(angle_rad)
-
-        bars_draw.line(
-            [(x1, y1), (x2, y2)],
-            fill=(cr, cg, cb, alpha),
-            width=8,
+    for bar in bar_data:
+        bx = int(bar["x"] * S)
+        bw = int(bar_w * S)
+        bh = int(bar["h"] * S)
+        by = bar_cy - bh // 2
+        br = bw // 2  # rounded end radius
+        r, g, b = bar["color"]
+        a = bar["alpha"]
+        bars_draw.rounded_rectangle(
+            [bx, by, bx + bw, by + bh],
+            radius=br,
+            fill=(r, g, b, a),
         )
 
-        # Add rounded caps
-        cap_r = 4
-        bars_draw.ellipse(
-            [x2 - cap_r, y2 - cap_r, x2 + cap_r, y2 + cap_r],
-            fill=(cr, cg, cb, alpha),
-        )
+    img = Image.alpha_composite(img, bars_layer)
 
-    # Blur the bars slightly for a soft glow effect
-    bars_blurred = bars_layer.filter(ImageFilter.GaussianBlur(radius=2))
-    result = Image.alpha_composite(result, bars_blurred)
-    result = Image.alpha_composite(result, bars_layer)
+    # ── Specular highlights ──
+    spec_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
+    spec_draw = ImageDraw.Draw(spec_layer)
 
-    # --- Add subtle particle dots ---
-    dots_layer = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    dots_draw = ImageDraw.Draw(dots_layer)
+    # Top specular sheen on arch
+    spec_draw.ellipse(
+        [int(38 * S), int(6 * S), int(72 * S), int(22 * S)],
+        fill=(255, 255, 255, 20),
+    )
+    # Inner body top-left sheen
+    spec_draw.rounded_rectangle(
+        [body_l + int(3 * S), body_t + int(2 * S),
+         body_l + int(31 * S), body_t + int(12 * S)],
+        radius=int(5 * S),
+        fill=(255, 255, 255, 12),
+    )
 
-    import random
-    random.seed(42)  # deterministic
-    for _ in range(60):
-        angle = random.uniform(0, 2 * math.pi)
-        dist = random.uniform(180, 420)
-        x = CENTER + dist * math.cos(angle)
-        y = CENTER - 40 + dist * math.sin(angle)
-        r = random.uniform(1.5, 4)
-        alpha = random.randint(40, 120)
-        dots_draw.ellipse(
-            [x - r, y - r, x + r, y + r],
-            fill=(180, 200, 255, alpha),
-        )
+    spec_blurred = spec_layer.filter(ImageFilter.GaussianBlur(radius=int(2 * S)))
+    img = Image.alpha_composite(img, spec_blurred)
 
-    result = Image.alpha_composite(result, dots_layer)
-
-    # --- App name at bottom ---
-    draw = ImageDraw.Draw(result)
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/SFCompact.ttf", 68)
-    except (OSError, IOError):
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 68)
-        except (OSError, IOError):
-            font = ImageFont.load_default()
-
-    text = "LocalWhisper"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw = bbox[2] - bbox[0]
-    tx = (SIZE - tw) // 2
-    ty = 830
-
-    # Subtle shadow
-    draw.text((tx + 2, ty + 2), text, fill=(0, 0, 0, 80), font=font)
-    # Main text - light with slight purple tint
-    draw.text((tx, ty), text, fill=(210, 205, 235, 220), font=font)
-
-    # Re-apply rounded mask to clean up edges
-    final = Image.new("RGBA", (SIZE, SIZE), (0, 0, 0, 0))
-    final.paste(result, mask=mask)
-
+    # ── Save ──
     out_dir = os.path.dirname(os.path.abspath(__file__))
     png_path = os.path.join(out_dir, "icon_1024.png")
-    final.save(png_path, "PNG")
+    img.save(png_path, "PNG")
     print(f"Saved {png_path}")
     return png_path
 

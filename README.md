@@ -12,12 +12,12 @@ On first launch, grant **Microphone** and **Accessibility** permissions when pro
 
 Press **Ctrl+Shift+D** to start recording. Speak, then press **Ctrl+Shift+D** again. The transcribed text is pasted at your cursor.
 
-| Menubar | State |
-|---------|-------|
-| 🎤 | Ready |
-| ⬇ | Downloading model |
-| 🔴 Rec | Recording (with timer) |
-| ⏳ | Transcribing / pasting |
+| Menubar Icon | State |
+|--------------|-------|
+| Lock + waveform (static) | Ready |
+| Spinning arc | Downloading model |
+| Pulsing bars + red dot | Recording (with timer) |
+| Spinning arc | Transcribing / pasting |
 
 Recording auto-stops after 2 minutes.
 
@@ -75,6 +75,7 @@ pyinstaller LocalWhisper.spec --noconfirm
 - **Translation**: `mlx-lm` runs a 4-bit quantized LLM locally for any-to-any translation
 - **Insertion**: Clipboard save → pbcopy → osascript Cmd+V → clipboard restore
 - **Model management**: Cache checks via `huggingface_hub`, background downloads with UI feedback
+- **Animated status bar**: Frame-by-frame PNG animation — lock+waveform idle icon, pulsing bars for recording, spinning arc for processing
 - **State machine**: `IDLE → DOWNLOADING → RECORDING → PROCESSING → INSERTING → IDLE`, thread-safe with locks
 
 ## Notes
