@@ -549,7 +549,10 @@ class LocalWhisperApp(rumps.App):
 
     def _build_mic_items(self):
         """Populate the Microphone submenu with current input devices."""
-        self._mic_menu.clear()
+        try:
+            self._mic_menu.clear()
+        except AttributeError:
+            pass  # NSMenu not yet initialized on first build
 
         # "System Default" always first
         default_item = rumps.MenuItem("System Default", callback=self._on_mic_select)
