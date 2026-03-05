@@ -10,33 +10,36 @@ On first launch, grant **Microphone** and **Accessibility** permissions when pro
 
 ## Usage
 
-Press **Ctrl+Shift+D** to start recording. Speak, then press **Ctrl+Shift+D** again. The transcribed text is pasted at your cursor.
+Press **Ctrl+Shift+D** (default) to start recording. Speak, then press the shortcut again. The transcribed text is pasted at your cursor.
 
-| Menubar Icon | State |
-|--------------|-------|
-| Lock + waveform (static) | Ready |
-| Spinning arc | Downloading model |
-| Pulsing bars + red dot | Recording (with timer) |
-| Spinning arc | Transcribing / pasting |
+A floating lock overlay shows the current state:
 
-Recording auto-stops after 2 minutes.
+| Overlay | State |
+|---------|-------|
+| Red pulsing bars | Recording |
+| Purple spinner | Processing / transcribing |
+| Teal dual arcs | Translating |
+| Hidden | Idle |
 
-## Menu Options
+Recording auto-stops after the configured max duration (default: 2 minutes).
 
-- **Model** — shows download size and cache status per model
-  - `Turbo – balanced (recommended) [1.5 GB, downloaded]`
-  - `Small – fast, good accuracy [460 MB]`
-  - Selecting an uncached model downloads it automatically with status feedback
-- **Input Language** — Deutsch / English / Français / Español / Italiano / Auto-detect
-- **Translate** — toggle translation on/off (menu stays open, macOS-native toggle)
-- **Output Language** — target language for translation
+## Settings
+
+Open **Settings...** (⌘,) from the menubar menu. All settings persist across restarts (`~/.localwhisper.json`).
+
+- **Model** — select and download Whisper models (see table below)
+- **Language** — input language, translate toggle, output language
+- **Text Processing** — Off / Clean up / Formal / Casual (uses local LLM)
+- **Audio** — microphone selection, max recording duration
 - **Shortcut** — Ctrl+Shift+D, Ctrl+Shift+Space, double-tap Ctrl/Cmd/Shift
-- **Last transcription** — click to copy to clipboard
-- Settings persist across restarts (`~/.localwhisper.json`)
 
 ## Translation
 
-LocalWhisper supports any-to-any translation using a local LLM (Llama 3.2 3B, ~1.8 GB). Enable **Translate**, pick input and output languages, and dictate. The LLM downloads automatically on first use with status feedback. For input-to-English, Whisper's built-in translation is used instead (no LLM needed).
+LocalWhisper supports any-to-any translation using a local LLM (Llama 3.2 3B, ~1.8 GB). Enable **Translate**, pick input and output languages, and dictate. The LLM downloads automatically on first use. For input-to-English, Whisper's built-in translation is used instead (no LLM needed).
+
+## Text Processing
+
+When a text style is enabled (Clean up, Formal, or Casual), a local LLM post-processes the transcription to fix grammar, punctuation, and tone — while preserving the original meaning and language. The LLM (~1.8 GB) downloads automatically on first use.
 
 ## Model Downloads
 
@@ -49,7 +52,7 @@ Models download from HuggingFace Hub on first use. The app shows download status
 | Turbo | 1.5 GB | Balanced (default) |
 | Medium | 1.5 GB | Slower, better accuracy |
 | Large | 3.0 GB | Slowest, best accuracy |
-| Translation LLM | 1.8 GB | Downloaded on first translation |
+| Translation LLM | 1.8 GB | Downloaded on first translation or text processing |
 
 ## Build from Source
 
@@ -73,10 +76,11 @@ pyinstaller LocalWhisper.spec --noconfirm
 - **Recording**: `sounddevice` captures 16kHz float32 mono audio in memory — no disk I/O
 - **Transcription**: `mlx-whisper` runs Whisper models natively on Apple Silicon GPU
 - **Translation**: `mlx-lm` runs a 4-bit quantized LLM locally for any-to-any translation
-- **Insertion**: Clipboard save → pbcopy → osascript Cmd+V → clipboard restore
-- **Model management**: Cache checks via `huggingface_hub`, background downloads with UI feedback
-- **Animated status bar**: Frame-by-frame PNG animation — lock+waveform idle icon, pulsing bars for recording, spinning arc for processing
-- **State machine**: `IDLE → DOWNLOADING → RECORDING → PROCESSING → INSERTING → IDLE`, thread-safe with locks
+- **Text processing**: Same LLM cleans up, formalizes, or casualizes transcriptions
+- **Insertion**: Clipboard save → pbcopy → Quartz CGEvent Cmd+V → clipboard restore
+- **Settings**: WKWebView + HTML/CSS branded dark UI (same approach as overlay)
+- **Overlay**: Floating WKWebView with animated SVG lock — no background, just the lock icon
+- **State machine**: `IDLE → DOWNLOADING → RECORDING → PROCESSING → TRANSLATING → INSERTING → IDLE`, thread-safe with locks
 
 ## Notes
 

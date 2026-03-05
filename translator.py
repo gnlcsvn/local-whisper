@@ -48,12 +48,21 @@ class LLMProcessor:
         self._model, self._tokenizer = load(self._model_repo)
         log.info("LLM loaded")
 
+    _SYSTEM_MSG = (
+        "You are a text processing assistant. "
+        "Reply with ONLY the requested text. "
+        "Never add introductions, explanations, labels, or commentary."
+    )
+
     def _generate(self, prompt: str, max_tokens: int = 256) -> str:
         """Run a prompt through the LLM and return the response."""
         self._ensure_loaded()
         from mlx_lm import generate
 
-        messages = [{"role": "user", "content": prompt}]
+        messages = [
+            {"role": "system", "content": self._SYSTEM_MSG},
+            {"role": "user", "content": prompt},
+        ]
         chat_prompt = self._tokenizer.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
         )
@@ -65,7 +74,21 @@ class LLMProcessor:
             max_tokens=max_tokens,
             verbose=False,
         )
-        return response.strip()
+        return self._strip_preamble(response.strip())
+
+    @staticmethod
+    def _strip_preamble(text: str) -> str:
+        """Remove common LLM preamble patterns from the output."""
+        import re
+        # Strip lines like "Here is the rewritten text...:" or "Here's the translation:"
+        text = re.sub(
+            r'^(?:Here(?:\'s| is) (?:the |a |my )?(?:rewritten|translated|cleaned|corrected|formal|casual)[\w\s,]*?[.:]\s*\n?)',
+            '', text, flags=re.IGNORECASE
+        )
+        # Strip leading/trailing quotes the LLM sometimes wraps output in
+        if len(text) > 2 and text[0] == '"' and text[-1] == '"':
+            text = text[1:-1]
+        return text.strip()
 
     # ── Translation ──────────────────────────────────────
 
@@ -95,44 +118,78 @@ class LLMProcessor:
         log.info(f"Translation ({src_name}->{tgt_name}): {result[:80]}")
         return result
 
-    # ── Rephrase / cleanup (for future use) ──────────────
+    # ── Text processing ─────────────────────────────────
 
-    def rephrase(self, text: str, style: str = "clean") -> str:
-        """Rephrase or clean up transcribed text.
+    _STYLE_INSTRUCTIONS = {
+        "clean": (
+            "Fix punctuation, capitalization, spelling, and grammar in this {lang} text. "
+            "Do not change the meaning or add new content. "
+            "Reply in {lang} only."
+        ),
+        "formal": (
+            "Make the tone of this {lang} text slightly more polished and professional. "
+            "Fix punctuation, spelling, and grammar. "
+            "Do not change the meaning, do not add or remove sentences. "
+            "Reply in {lang} only."
+        ),
+        "casual": (
+            "Make the tone of this {lang} text slightly more conversational. "
+            "Fix punctuation, spelling, and grammar. "
+            "Do not change the meaning, do not add or remove sentences. "
+            "Reply in {lang} only."
+        ),
+    }
 
-        Styles:
-            clean   - fix punctuation, capitalization, minor errors
-            formal  - rewrite in formal/professional tone
-            casual  - rewrite in casual/friendly tone
-            concise - condense to key points
-        """
+    _STYLE_TRANSLATE_INSTRUCTIONS = {
+        "clean": (
+            "Translate the following text to {target}. "
+            "Fix punctuation, capitalization, spelling, and grammar errors. "
+            "Output ONLY the translated and cleaned text."
+        ),
+        "formal": (
+            "Translate the following text to {target} in a formal, professional tone. "
+            "Fix any errors. Output ONLY the result."
+        ),
+        "casual": (
+            "Translate the following text to {target} in a casual, conversational tone. "
+            "Fix any errors. Output ONLY the result."
+        ),
+    }
+
+    def rephrase(self, text: str, style: str = "clean", language: str = "en") -> str:
+        """Rephrase or clean up transcribed text (same language)."""
         if not text.strip():
             return text
 
-        style_instructions = {
-            "clean": (
-                "Clean up this transcribed speech. Fix punctuation, "
-                "capitalization, and obvious transcription errors. "
-                "Keep the original meaning and language. "
-                "Output ONLY the cleaned text."
-            ),
-            "formal": (
-                "Rewrite this text in a formal, professional tone. "
-                "Keep the same language. Output ONLY the rewritten text."
-            ),
-            "casual": (
-                "Rewrite this text in a casual, friendly tone. "
-                "Keep the same language. Output ONLY the rewritten text."
-            ),
-            "concise": (
-                "Condense this text to its key points. "
-                "Keep the same language. Output ONLY the condensed text."
-            ),
-        }
-
-        instruction = style_instructions.get(style, style_instructions["clean"])
+        lang_name = _LANG_NAMES.get(language, language)
+        template = self._STYLE_INSTRUCTIONS.get(style, self._STYLE_INSTRUCTIONS["clean"])
+        instruction = template.format(lang=lang_name)
         prompt = f"{instruction}\n\n{text}"
 
         result = self._generate(prompt, max_tokens=len(text) * 2)
-        log.info(f"Rephrase ({style}): {result[:80]}")
+        log.info(f"Rephrase ({style}, {lang_name}): {result[:80]}")
+        return result
+
+    def translate_and_rephrase(self, text: str, source_lang: str,
+                                target_lang: str, style: str) -> str:
+        """Translate and apply text style in a single LLM call."""
+        if not text.strip():
+            return text
+
+        tgt_name = _LANG_NAMES.get(target_lang, target_lang)
+        template = self._STYLE_TRANSLATE_INSTRUCTIONS.get(
+            style, self._STYLE_TRANSLATE_INSTRUCTIONS["clean"]
+        )
+        instruction = template.format(target=tgt_name)
+
+        src_name = _LANG_NAMES.get(source_lang, source_lang)
+        if source_lang != "auto":
+            instruction = instruction.replace(
+                "the following text",
+                f"the following {src_name} text",
+            )
+
+        prompt = f"{instruction}\n\n{text}"
+        result = self._generate(prompt, max_tokens=len(text) * 3)
+        log.info(f"Translate+rephrase ({src_name}->{tgt_name}, {style}): {result[:80]}")
         return result

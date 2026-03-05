@@ -5,8 +5,6 @@ import os
 import sys
 import time
 import threading
-import traceback
-
 import rumps
 import sounddevice as sd
 
@@ -21,10 +19,11 @@ log = logging.getLogger("LocalWhisper")
 
 from config import (
     Config, MODEL_MAP, MODEL_SIZES_MB, LLM_MODEL_REPO, LLM_SIZE_MB,
-    SHORTCUT_PRESETS, LANGUAGES as LANG_CODES,
+    SHORTCUT_PRESETS, LANGUAGES as LANG_CODES, TEXT_STYLES,
+    RECORDING_DURATIONS,
 )
 from model_manager import (
-    is_whisper_cached, is_llm_cached, is_model_cached,
+    is_whisper_cached, is_llm_cached,
     download_model, format_size,
 )
 from recorder import AudioRecorder
@@ -33,6 +32,7 @@ from translator import LLMProcessor
 from inserter import TextInserter, InsertionError
 from hotkey import HotkeyListener
 from overlay import OverlayWindow
+from settings_window import SettingsWindow
 
 
 def _resource_path(relative: str) -> str:
@@ -47,6 +47,7 @@ class State(enum.Enum):
     DOWNLOADING = "downloading"
     RECORDING = "recording"
     PROCESSING = "processing"
+    TRANSLATING = "translating"
     INSERTING = "inserting"
 
 
@@ -56,6 +57,7 @@ MENUBAR_TITLES = {
     State.DOWNLOADING: "",
     State.RECORDING: "",
     State.PROCESSING: "",
+    State.TRANSLATING: "",
     State.INSERTING: "",
 }
 
@@ -64,20 +66,8 @@ STATUS_LABELS = {
     State.DOWNLOADING: "Downloading\u2026",
     State.RECORDING: "Recording\u2026",
     State.PROCESSING: "Processing\u2026",
+    State.TRANSLATING: "Translating\u2026",
     State.INSERTING: "Pasting\u2026",
-}
-
-# Build display_name -> code mapping from config's code -> name mapping
-LANGUAGES = {name: code for code, name in LANG_CODES.items()}
-# Output languages (no "auto-detect" — you must pick a target)
-OUTPUT_LANGUAGES = {name: code for code, name in LANG_CODES.items() if code != "auto"}
-
-MODEL_LABELS = {
-    "tiny": "Tiny  \u2013  fastest, least accurate",
-    "small": "Small  \u2013  fast, good accuracy",
-    "turbo": "Turbo  \u2013  balanced (recommended)",
-    "medium": "Medium  \u2013  slower, better accuracy",
-    "large": "Large  \u2013  slowest, best accuracy",
 }
 
 SETTINGS_PATH = os.path.expanduser("~/.localwhisper.json")
@@ -86,90 +76,6 @@ SETTINGS_PATH = os.path.expanduser("~/.localwhisper.json")
 _SOUND_START = "/System/Library/Sounds/Tink.aiff"
 _SOUND_STOP = "/System/Library/Sounds/Pop.aiff"
 _NSSound = None
-
-# ── Custom NSView for toggle menu items that keep the menu open ──
-
-_ToggleViewClass = None
-
-
-def _make_toggle_view(title, checked, callback):
-    """Create a custom view for a menu item toggle.
-
-    NSMenuItem with a custom view does NOT close the menu when clicked,
-    matching macOS system behaviour (e.g. Battery → Low Power Mode).
-    """
-    global _ToggleViewClass
-
-    if _ToggleViewClass is None:
-        from AppKit import (
-            NSView as _NSView,
-            NSFont as _NSFont,
-            NSColor as _NSColor,
-            NSTrackingArea as _NSTrackingArea,
-            NSBezierPath as _NSBezierPath,
-            NSAttributedString as _NSAttrStr,
-            NSFontAttributeName as _kFont,
-            NSForegroundColorAttributeName as _kColor,
-        )
-        from Foundation import NSMakeRect as _NSMakeRect, NSMakePoint as _NSMakePoint
-        import objc as _objc
-
-        class _ToggleView(_NSView):
-            """Renders a checkmark + title, highlights on hover, toggles on click."""
-
-            def drawRect_(self, dirty):
-                bounds = self.bounds()
-                highlighted = getattr(self, "_highlighted", False)
-                checked_ = getattr(self, "_checked", False)
-
-                if highlighted:
-                    _NSColor.selectedMenuItemColor().setFill()
-                    _NSBezierPath.fillRect_(bounds)
-                    color = _NSColor.selectedMenuItemTextColor()
-                else:
-                    color = _NSColor.labelColor()
-
-                font = _NSFont.menuFontOfSize_(14)
-                attrs = {_kFont: font, _kColor: color}
-
-                if checked_:
-                    s = _NSAttrStr.alloc().initWithString_attributes_("\u2713", attrs)
-                    s.drawAtPoint_(_NSMakePoint(6, 3))
-
-                t = _NSAttrStr.alloc().initWithString_attributes_(
-                    getattr(self, "_title", ""), attrs
-                )
-                t.drawAtPoint_(_NSMakePoint(22, 3))
-
-            def mouseEntered_(self, event):
-                self._highlighted = True
-                self.setNeedsDisplay_(True)
-
-            def mouseExited_(self, event):
-                self._highlighted = False
-                self.setNeedsDisplay_(True)
-
-            def mouseUp_(self, event):
-                cb = getattr(self, "_cb", None)
-                if cb:
-                    cb()
-
-        _ToggleViewClass = _ToggleView
-
-    from Foundation import NSMakeRect as _R
-    from AppKit import NSTrackingArea as _TA
-
-    view = _ToggleViewClass.alloc().initWithFrame_(_R(0, 0, 250, 22))
-    view._title = title
-    view._checked = checked
-    view._highlighted = False
-    view._cb = callback
-
-    opts = 0x01 | 0x40 | 0x200  # EnteredAndExited | ActiveInActiveApp | InVisibleRect
-    ta = _TA.alloc().initWithRect_options_owner_userInfo_(view.bounds(), opts, view, None)
-    view.addTrackingArea_(ta)
-
-    return view
 
 
 def _play_sound(path: str) -> None:
@@ -231,6 +137,12 @@ def _load_settings(config: Config) -> None:
         shortcut = data.get("shortcut", "")
         if shortcut in SHORTCUT_PRESETS:
             config.shortcut = shortcut
+        text_style = data.get("text_style", "")
+        if text_style in TEXT_STYLES:
+            config.text_style = text_style
+        max_rec = data.get("max_recording_seconds")
+        if isinstance(max_rec, int) and max_rec in RECORDING_DURATIONS:
+            config.max_recording_seconds = max_rec
         input_dev = data.get("input_device")
         if input_dev is None or isinstance(input_dev, str):
             config.input_device = input_dev
@@ -247,6 +159,8 @@ def _save_settings(config: Config) -> None:
                     "language": config.language,
                     "output_language": config.output_language,
                     "translate": config.translate,
+                    "text_style": config.text_style,
+                    "max_recording_seconds": config.max_recording_seconds,
                     "shortcut": config.shortcut,
                     "input_device": config.input_device,
                 },
@@ -290,14 +204,16 @@ def _check_accessibility_permission() -> bool:
 
 class LocalWhisperApp(rumps.App):
     def __init__(self):
-        icon_path = _resource_path(os.path.join("icons", "statusbar_idleTemplate.png"))
         super().__init__(
             "LocalWhisper",
             title=MENUBAR_TITLES[State.IDLE],
-            icon=icon_path if os.path.exists(icon_path) else None,
+            icon=None,
             template=True,
             quit_button=None,
         )
+
+        # Custom lock+waveform vector icon (template, auto-tints for light/dark)
+        self._set_menubar_icon()
 
         self._overlay = OverlayWindow(_resource_path)
 
@@ -336,11 +252,41 @@ class LocalWhisperApp(rumps.App):
         self._model_cache_status: dict[str, bool | None] = {
             name: None for name in MODEL_MAP
         }
-        self._last_input_devices: list[dict] | None = None
+        self._last_input_devices: list[dict] = _get_input_devices()
         self._device_poll_counter: int = 0
 
         self._build_menu()
+        self._settings_window = SettingsWindow(self)
         self._start_hotkey()
+
+    # ── Menubar icon ─────────────────────────────────────
+
+    def _set_menubar_icon(self) -> None:
+        """Load the lock+waveform menubar template icon (PNG, auto-tints)."""
+        try:
+            from AppKit import NSImage
+
+            # Load the @2x template PNG (Retina)
+            icon_path = _resource_path("menubarTemplate@2x.png")
+            image = NSImage.alloc().initByReferencingFile_(icon_path)
+            if image is None or image.isValid() == False:
+                log.warning(f"Menubar icon not found at {icon_path}")
+                return
+
+            # Set size to 22x22pt (the @2x PNG is 44x44px)
+            from Foundation import NSMakeSize
+            image.setSize_(NSMakeSize(22, 22))
+            image.setTemplate_(True)
+
+            # Bypass rumps file-based icon path — set NSImage directly
+            self._icon_nsimage = image
+            self._icon = "menubar"  # keep rumps happy
+            try:
+                self._nsapp.setStatusBarIcon()
+            except AttributeError:
+                pass  # not yet initialized, will be set in initializeStatusBar
+        except Exception:
+            log.exception("Failed to load menubar icon")
 
     # ── Menu ──────────────────────────────────────────────
 
@@ -355,61 +301,20 @@ class LocalWhisperApp(rumps.App):
         )
         self._shortcut_item.set_callback(None)
 
+        # Translation info display
+        self._processing_info = rumps.MenuItem(
+            self._processing_info_text(), callback=None
+        )
+        self._processing_info.set_callback(None)
+
         self._last_text_header = rumps.MenuItem("Last transcription:", callback=None)
         self._last_text_header.set_callback(None)
         self._last_text_item = rumps.MenuItem("\u2014", callback=None)
         self._last_text_item.set_callback(None)
 
-        self._model_menu = rumps.MenuItem("Model")
-        for name in MODEL_MAP:
-            label = self._model_menu_label(name)
-            item = rumps.MenuItem(label, callback=self._on_model_select)
-            item._model_key = name
-            item.state = name == self._config.model_name
-            self._model_menu.add(item)
-
-        # Input language (what you speak)
-        self._input_lang_menu = rumps.MenuItem("Input Language")
-        for display, code in LANGUAGES.items():
-            item = rumps.MenuItem(display, callback=self._on_input_lang_select)
-            item._lang_code = code
-            item.state = code == self._config.language
-            self._input_lang_menu.add(item)
-
-        # Translation toggle — uses a custom NSView so the menu stays open
-        self._translate_item = rumps.MenuItem("Translate")
-        self._translate_item.set_callback(None)  # view handles clicks
-        self._translate_view = _make_toggle_view(
-            "Translate", self._config.translate, self._on_translate_toggle_view
-        )
-        self._translate_item._menuitem.setView_(self._translate_view)
-
-        self._output_lang_menu = rumps.MenuItem("Output Language")
-        for display, code in OUTPUT_LANGUAGES.items():
-            item = rumps.MenuItem(display, callback=self._on_output_lang_select)
-            item._lang_code = code
-            item.state = code == self._config.output_language
-            self._output_lang_menu.add(item)
-
-        # Translation info display
-        self._translate_info = rumps.MenuItem(
-            self._translate_info_text(), callback=None
-        )
-        self._translate_info.set_callback(None)
-
-        # Shortcut submenu
-        self._shortcut_menu = rumps.MenuItem("Shortcut")
-        for preset_id, preset_info in SHORTCUT_PRESETS.items():
-            item = rumps.MenuItem(
-                preset_info["label"], callback=self._on_shortcut_select
-            )
-            item._preset_id = preset_id
-            item.state = preset_id == self._config.shortcut
-            self._shortcut_menu.add(item)
-
-        # Microphone submenu
-        self._mic_menu = rumps.MenuItem("Microphone")
-        self._build_mic_items()
+        settings_item = rumps.MenuItem("Settings\u2026", callback=self._on_open_settings)
+        # Add Cmd+, shortcut
+        settings_item._menuitem.setKeyEquivalent_(",")
 
         about = rumps.MenuItem("About LocalWhisper", callback=self._on_about)
         quit_item = rumps.MenuItem("Quit LocalWhisper", callback=self._on_quit)
@@ -417,52 +322,38 @@ class LocalWhisperApp(rumps.App):
         self.menu = [
             self._status_item,
             self._shortcut_item,
-            self._translate_info,
+            self._processing_info,
             None,
             self._last_text_header,
             self._last_text_item,
             None,
-            self._model_menu,
-            self._input_lang_menu,
-            None,
-            self._translate_item,
-            self._output_lang_menu,
-            None,
-            self._mic_menu,
-            self._shortcut_menu,
+            settings_item,
             None,
             about,
             quit_item,
         ]
 
-    def _translate_info_text(self) -> str:
-        """Build the info string like 'Deutsch → English' or 'Deutsch'."""
+    def _processing_info_text(self) -> str:
+        """Build the info string like 'Deutsch → English · Formal'."""
         in_name = LANG_CODES.get(self._config.language, self._config.language)
         if self._config.translate and self._config.needs_translation:
             out_name = LANG_CODES.get(
                 self._config.output_language, self._config.output_language
             )
-            return f"{in_name} \u2192 {out_name}"
-        return f"{in_name}"
+            parts = [f"{in_name} \u2192 {out_name}"]
+        else:
+            parts = [in_name]
+        style_label = TEXT_STYLES.get(self._config.text_style)
+        if style_label and self._config.text_style != "off":
+            parts.append(style_label)
+        return " \u00b7 ".join(parts)
 
-    def _update_translate_info(self):
-        self._translate_info.title = self._translate_info_text()
+    def _update_processing_info(self):
+        self._processing_info.title = self._processing_info_text()
 
-    def _model_menu_label(self, name: str) -> str:
-        """Build a model menu label with size and cache status."""
-        base = MODEL_LABELS.get(name, name)
-        size = format_size(MODEL_SIZES_MB.get(name, 0))
-        cached = self._model_cache_status.get(name)
-        if cached is True:
-            return f"{base}  [{size}, downloaded]"
-        return f"{base}  [{size}]"
-
-    def _refresh_model_menu(self):
-        """Update all model menu item labels (call from main thread)."""
-        for item in self._model_menu.values():
-            name = getattr(item, "_model_key", None)
-            if name:
-                item.title = self._model_menu_label(name)
+    def _on_open_settings(self, _):
+        log.info("_on_open_settings callback fired")
+        self._settings_window.show()
 
     def _check_model_cache_status(self):
         """Check cache status for all models on a background thread."""
@@ -477,119 +368,71 @@ class LocalWhisperApp(rumps.App):
                     self._pending_ui = {"refresh_model_menu": True}
         threading.Thread(target=_check, daemon=True, name="cache-check").start()
 
-    def _on_model_select(self, sender):
-        key = sender._model_key
-        if key == self._config.model_name:
-            return
+    # ── Settings window callbacks ────────────────────────────
 
+    def on_settings_model_select(self, model_key):
+        if model_key == self._config.model_name:
+            return
+        self._config.model_name = model_key
+        self._transcriber.change_model(model_key)
+        _save_settings(self._config)
+
+    def on_settings_download_model(self, model_key):
         with self._state_lock:
             if self._state == State.DOWNLOADING:
-                return  # already downloading something
+                return
+        self._download_and_switch_model(model_key)
 
-        cached = self._model_cache_status.get(key)
-        if cached is True:
-            # Instant switch
-            self._config.model_name = key
-            self._transcriber.change_model(key)
-            for item in self._model_menu.values():
-                item.state = getattr(item, "_model_key", None) == key
-            _save_settings(self._config)
-        else:
-            # Need to download first
-            self._download_and_switch_model(key)
-
-    def _on_input_lang_select(self, sender):
-        code = sender._lang_code
+    def on_settings_input_lang(self, code):
         self._config.language = code
         self._transcriber.change_language(code)
-        for item in self._input_lang_menu.values():
-            item.state = getattr(item, "_lang_code", None) == code
-        self._update_translate_info()
+        self._update_processing_info()
         _save_settings(self._config)
 
-    def _on_output_lang_select(self, sender):
-        code = sender._lang_code
+    def on_settings_output_lang(self, code):
         self._config.output_language = code
-        for item in self._output_lang_menu.values():
-            item.state = getattr(item, "_lang_code", None) == code
-        self._update_translate_info()
+        self._update_processing_info()
         _save_settings(self._config)
 
-    def _on_translate_toggle_view(self):
-        """Called by the custom toggle view — menu stays open."""
-        self._config.translate = not self._config.translate
-        self._translate_view._checked = self._config.translate
-        self._translate_view.setNeedsDisplay_(True)
-        self._update_translate_info()
+    def on_settings_translate_toggle(self, enabled):
+        self._config.translate = enabled
+        self._update_processing_info()
         _save_settings(self._config)
 
-    def _on_shortcut_select(self, sender):
+    def on_settings_text_style(self, style):
+        self._config.text_style = style
+        self._update_processing_info()
+        _save_settings(self._config)
+
+    def on_settings_shortcut(self, preset_id):
         try:
-            preset_id = sender._preset_id
-            log.info(f"Shortcut select: {preset_id} (current: {self._config.shortcut})")
             if preset_id == self._config.shortcut:
                 return
-
             self._config.shortcut = preset_id
-            for item in self._shortcut_menu.values():
-                item.state = getattr(item, "_preset_id", None) == preset_id
-
-            # Update display label
             preset = SHORTCUT_PRESETS[preset_id]
             self._shortcut_item.title = f"Shortcut: {preset['label']}"
-
             _save_settings(self._config)
-
-            # Hot-swap shortcut detection (no listener restart needed)
             if self._hotkey_listener is not None:
                 self._hotkey_listener.change_shortcut(preset)
             log.info(f"Shortcut changed to {preset_id}")
         except Exception:
-            log.exception("Error in _on_shortcut_select")
+            log.exception("Error in on_settings_shortcut")
 
-    def _build_mic_items(self):
-        """Populate the Microphone submenu with current input devices."""
-        try:
-            self._mic_menu.clear()
-        except AttributeError:
-            pass  # NSMenu not yet initialized on first build
+    def on_settings_max_recording(self, seconds):
+        self._config.max_recording_seconds = seconds
+        _save_settings(self._config)
+        log.info(f"Max recording length changed to {seconds}s")
 
-        # "System Default" always first
-        default_item = rumps.MenuItem("System Default", callback=self._on_mic_select)
-        default_item._device_name = None
-        default_item._device_index = None
-        default_item.state = self._config.input_device is None
-        self._mic_menu.add(default_item)
-
-        devices = _get_input_devices()
-        for dev in devices:
-            item = rumps.MenuItem(dev["name"], callback=self._on_mic_select)
-            item._device_name = dev["name"]
-            item._device_index = dev["index"]
-            item.state = dev["name"] == self._config.input_device
-            self._mic_menu.add(item)
-
-        self._last_input_devices = devices
-
-    def _on_mic_select(self, sender):
-        """Handle microphone selection."""
-        device_name = sender._device_name
-        device_index = sender._device_index
-
+    def on_settings_mic_select(self, device_name, device_index):
         if device_name == self._config.input_device:
             return
-
         self._config.input_device = device_name
         self._recorder.change_device(device_index)
-
-        for item in self._mic_menu.values():
-            item.state = getattr(item, "_device_name", "NOMATCH") == device_name
-
         _save_settings(self._config)
         log.info(f"Microphone changed to: {device_name or 'System Default'} (index={device_index})")
 
     def _check_device_changes(self):
-        """Refresh mic menu if the available devices changed."""
+        """Refresh mic list if the available devices changed."""
         current = _get_input_devices()
         if current == self._last_input_devices:
             return
@@ -604,7 +447,8 @@ class LocalWhisperApp(rumps.App):
                 self._recorder.change_device(None)
                 _save_settings(self._config)
 
-        self._build_mic_items()
+        self._last_input_devices = current
+        self._settings_window.refresh_devices(current)
 
     def _on_copy_last(self, _):
         if self._last_transcription:
@@ -743,11 +587,15 @@ class LocalWhisperApp(rumps.App):
             self._last_text_item.title = f"\u201c{truncated}\u201d"
             self._last_text_item.set_callback(self._on_copy_last)
         if update.get("refresh_model_menu"):
-            self._refresh_model_menu()
+            for name in MODEL_MAP:
+                cached = self._model_cache_status.get(name, False)
+                self._settings_window.update_model_status(name, is_cached=bool(cached))
         if "active_model" in update:
             active = update["active_model"]
-            for item in self._model_menu.values():
-                item.state = getattr(item, "_model_key", None) == active
+            self._settings_window.update_model_selection(active)
+        if update.get("settings_download_failed"):
+            key = update["settings_download_failed"]
+            self._settings_window.update_model_status(key, is_cached=False, is_downloading=False)
 
     # ── State machine ─────────────────────────────────────
 
@@ -769,8 +617,11 @@ class LocalWhisperApp(rumps.App):
             self._overlay.show_processing()
         elif state == State.RECORDING:
             self._overlay.show_recording()
-        elif state in (State.PROCESSING, State.INSERTING):
+        elif state == State.TRANSLATING:
+            self._overlay.show_translating()
+        elif state == State.PROCESSING:
             self._overlay.show_processing()
+        # INSERTING: keep current overlay (paste is near-instant)
 
     def _notify(self, message: str) -> None:
         with self._pending_lock:
@@ -820,6 +671,11 @@ class LocalWhisperApp(rumps.App):
                 self._notify(f"Download failed for {model_name}")
                 with self._state_lock:
                     self._set_state(State.IDLE)
+                with self._pending_lock:
+                    if self._pending_ui is not None:
+                        self._pending_ui["settings_download_failed"] = model_name
+                    else:
+                        self._pending_ui = {"settings_download_failed": model_name}
 
         threading.Thread(target=_do_download, daemon=True, name="model-dl").start()
 
@@ -900,13 +756,30 @@ class LocalWhisperApp(rumps.App):
             self._max_timer = None
 
         self._queue_sound(_SOUND_STOP)
-        self._set_state(State.PROCESSING)
+        if self._config.whisper_can_translate:
+            self._set_state(State.TRANSLATING)
+        else:
+            self._set_state(State.PROCESSING)
         audio = self._recorder.stop()
 
         t = threading.Thread(
             target=self._transcribe_and_insert, args=(audio,), daemon=True
         )
         t.start()
+
+    def _ensure_llm_downloaded(self):
+        """Download the LLM if not cached. Caller is on a background thread."""
+        if is_llm_cached():
+            return
+        size = format_size(LLM_SIZE_MB)
+        log.info(f"LLM not cached, downloading ({size})")
+        with self._state_lock:
+            self._set_state(
+                State.DOWNLOADING,
+                status=f"Downloading language model ({size})\u2026",
+            )
+        download_model(LLM_MODEL_REPO)
+        log.info("LLM download complete")
 
     def _transcribe_and_insert(self, audio):
         try:
@@ -924,36 +797,38 @@ class LocalWhisperApp(rumps.App):
                     self._set_state(State.IDLE)
                 return
 
-            # Step 2: If translation needed and Whisper didn't handle it,
-            # use LLM for any-to-any translation
-            if cfg.needs_translation and not use_whisper_translate:
-                log.info(
-                    f"LLM translation: {cfg.language} -> {cfg.output_language}"
-                )
+            # Step 2: LLM processing (text style and/or translation)
+            needs_style = cfg.needs_text_processing
+            needs_translate = cfg.needs_translation and not use_whisper_translate
+            src = cfg.language if cfg.language != "auto" else "auto"
 
-                # Download the LLM if not cached
-                if not is_llm_cached():
-                    size = format_size(LLM_SIZE_MB)
-                    log.info(f"LLM not cached, downloading ({size})")
-                    with self._state_lock:
-                        self._set_state(
-                            State.DOWNLOADING,
-                            status=f"Downloading translation model ({size})\u2026",
-                        )
-                    download_model(LLM_MODEL_REPO)
-                    log.info("LLM download complete")
-
+            if needs_style and needs_translate:
+                # Combined: rephrase + translate in one LLM call
+                log.info(f"LLM translate+rephrase: {src} -> {cfg.output_language}, style={cfg.text_style}")
+                self._ensure_llm_downloaded()
                 with self._state_lock:
-                    self._set_state(
-                        State.PROCESSING, status="Translating\u2026"
-                    )
-
-                # If input is auto-detect, we transcribed but don't know the
-                # source lang. Use "auto" so the LLM auto-detects.
-                src = cfg.language if cfg.language != "auto" else "auto"
-                text = self._llm.translate(
-                    text, src, cfg.output_language
+                    self._set_state(State.TRANSLATING)
+                text = self._llm.translate_and_rephrase(
+                    text, src, cfg.output_language, cfg.text_style
                 )
+
+            elif needs_style:
+                # Style only (same language)
+                log.info(f"LLM rephrase: style={cfg.text_style}")
+                self._ensure_llm_downloaded()
+                with self._state_lock:
+                    self._set_state(State.PROCESSING, status="Processing\u2026")
+                # Use output_language if translating, otherwise input language
+                rephrase_lang = cfg.output_language if use_whisper_translate else cfg.language
+                text = self._llm.rephrase(text, cfg.text_style, language=rephrase_lang)
+
+            elif needs_translate:
+                # Translation only
+                log.info(f"LLM translation: {src} -> {cfg.output_language}")
+                self._ensure_llm_downloaded()
+                with self._state_lock:
+                    self._set_state(State.TRANSLATING)
+                text = self._llm.translate(text, src, cfg.output_language)
 
             with self._state_lock:
                 self._set_state(State.INSERTING)

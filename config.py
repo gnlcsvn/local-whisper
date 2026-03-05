@@ -13,8 +13,8 @@ DEFAULT_MODEL = "turbo"
 LLM_MODEL_REPO = "mlx-community/Llama-3.2-3B-Instruct-4bit"
 LLM_SIZE_MB = 1800
 
-# Models that support translation (turbo was NOT trained on translation data)
-TRANSLATION_CAPABLE_MODELS = {"tiny", "small", "medium", "large"}
+# Models that support translation (turbo variants were NOT trained on translation data)
+TRANSLATION_CAPABLE_MODELS = {"tiny", "small", "medium"}
 # Best model for translation when user's selected model can't translate
 TRANSLATION_FALLBACK_MODEL = "medium"
 
@@ -33,6 +33,23 @@ LANGUAGES = {
     "ko": "\ud55c\uad6d\uc5b4",
     "ru": "\u0420\u0443\u0441\u0441\u043a\u0438\u0439",
     "auto": "Auto-detect",
+}
+
+# Max recording duration presets (seconds -> display label)
+RECORDING_DURATIONS = {
+    30: "30 seconds",
+    60: "1 minute",
+    120: "2 minutes",
+    300: "5 minutes",
+    600: "10 minutes",
+}
+
+# Text processing styles (LLM post-processing of transcription)
+TEXT_STYLES = {
+    "off": "Off",
+    "clean": "Clean up",
+    "formal": "Formal",
+    "casual": "Casual",
 }
 
 # Shortcut presets: id -> (display_label, type, config)
@@ -75,6 +92,7 @@ class Config:
     language: str = "de"           # input language (what you speak)
     output_language: str = "de"    # output language (what gets typed)
     translate: bool = False        # enable translation mode
+    text_style: str = "off"        # off, clean, formal, casual
     model_name: str = "turbo"
     input_device: str | None = None  # None = system default; otherwise device name
 
@@ -97,3 +115,13 @@ class Config:
     def whisper_can_translate(self) -> bool:
         """True if Whisper can handle the translation natively (→ English only)."""
         return self.needs_translation and self.output_language == "en"
+
+    @property
+    def needs_text_processing(self) -> bool:
+        """True if LLM text processing (clean/formal/casual) is enabled."""
+        return self.text_style != "off"
+
+    @property
+    def needs_llm(self) -> bool:
+        """True if any LLM processing is needed (style or translation)."""
+        return self.needs_text_processing or (self.needs_translation and not self.whisper_can_translate)
