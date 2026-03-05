@@ -35,7 +35,7 @@ Open **Settings...** (⌘,) from the menubar menu. All settings persist across r
 
 ## Translation
 
-LocalWhisper supports any-to-any translation using a local LLM (Llama 3.2 3B, ~1.8 GB). Enable **Translate**, pick input and output languages, and dictate. The LLM downloads automatically on first use. For input-to-English, Whisper's built-in translation is used instead (no LLM needed).
+LocalWhisper supports any-to-any translation using a local LLM (Llama 3.2 3B, ~1.8 GB). Enable **Translate**, pick input and output languages, and dictate. The LLM downloads automatically on first use. For input-to-English, Whisper's built-in translation is used instead (no LLM needed) — this works with Tiny, Small, and Medium models.
 
 ## Text Processing
 
@@ -60,7 +60,8 @@ Requires macOS 13+, Apple Silicon, Python 3.10+, ffmpeg.
 
 ```bash
 brew install ffmpeg
-cd whispertype
+git clone https://github.com/gnlcsvn/local-whisper.git
+cd local-whisper
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 pip install pyinstaller
