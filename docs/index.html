@@ -570,6 +570,47 @@
     color: var(--indigo-bright);
   }
 
+  /* ─── TEXT PROCESSING ─── */
+  .style-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 56px;
+  }
+
+  .style-card {
+    padding: 20px 24px;
+    background: var(--surface-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: 16px;
+  }
+
+  .style-card h4 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+  }
+
+  .style-card .before {
+    font-size: 13px;
+    color: var(--text-muted);
+    font-style: italic;
+    margin-bottom: 8px;
+  }
+
+  .style-card .after {
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .style-card .arrow {
+    color: var(--indigo-bright);
+    font-size: 12px;
+    margin-bottom: 6px;
+  }
+
   /* ─── MODELS ─── */
   .models-table {
     margin-top: 56px;
@@ -804,6 +845,7 @@
     <a href="#privacy">Privacy</a>
     <a href="#how">How it works</a>
     <a href="#translation">Translation</a>
+    <a href="#processing">Processing</a>
     <a href="#models">Models</a>
     <a href="#install">Install</a>
     <a href="https://github.com/gnlcsvn/local-whisper" class="btn-github" target="_blank">
@@ -926,7 +968,7 @@
       <div class="how-step">
         <div class="step-num">3</div>
         <h3>Text appears</h3>
-        <p>mlx-whisper transcribes locally on your GPU. The text is pasted at your cursor position in any app.</p>
+        <p>mlx-whisper transcribes on your GPU, optionally translates and polishes the text, then pastes it at your cursor in any app.</p>
       </div>
     </div>
   </div>
@@ -1164,7 +1206,57 @@
       <div class="privacy-card">
         <div class="icon-wrap">&#x26a1;</div>
         <h3>Auto-download</h3>
-        <p>The translation model downloads automatically on first use. Toggle translation on/off from the menubar — the menu stays open for quick switching.</p>
+        <p>The translation model downloads automatically on first use. Toggle translation on/off in the Settings window, pick your languages, and start dictating.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TEXT PROCESSING -->
+<section id="processing">
+  <div class="container reveal">
+    <div class="section-label">Text processing</div>
+    <div class="section-title">Clean up your speech,<br>keep your meaning</div>
+    <p class="section-desc">
+      An on-device LLM (Llama 3.2 3B) post-processes transcriptions to fix grammar and adjust tone &mdash; without changing what you said. Works in any language.
+    </p>
+
+    <div class="style-cards">
+      <div class="style-card">
+        <h4>Clean up</h4>
+        <div class="before">&ldquo;so yeah i went to the uh store and bought like some stuff&rdquo;</div>
+        <div class="arrow">&darr;</div>
+        <div class="after">&ldquo;I went to the store and bought some stuff.&rdquo;</div>
+      </div>
+      <div class="style-card">
+        <h4>Formal</h4>
+        <div class="before">&ldquo;hey can you send me that report thing asap&rdquo;</div>
+        <div class="arrow">&darr;</div>
+        <div class="after">&ldquo;Could you please send me the report at your earliest convenience?&rdquo;</div>
+      </div>
+      <div class="style-card">
+        <h4>Casual</h4>
+        <div class="before">&ldquo;I would like to inform you that I shall be arriving at approximately 3pm&rdquo;</div>
+        <div class="arrow">&darr;</div>
+        <div class="after">&ldquo;Hey, I'll be there around 3!&rdquo;</div>
+      </div>
+    </div>
+
+    <div class="privacy-grid" style="margin-top: 40px;">
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f9e0;</div>
+        <h3>Meaning preserved</h3>
+        <p>The LLM adjusts tone and fixes errors, but never adds or removes content. Your words, polished.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f310;</div>
+        <h3>Any language</h3>
+        <p>Text processing works in all 12 supported languages. Speak German, get polished German back.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x26a1;</div>
+        <h3>Combine with translation</h3>
+        <p>Use text processing and translation together &mdash; speak casually in German, get formal English output.</p>
       </div>
     </div>
   </div>
