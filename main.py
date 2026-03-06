@@ -25,6 +25,7 @@ from config import (
 from model_manager import (
     is_whisper_cached, is_llm_cached,
     download_model, format_size,
+    delete_cached_model, get_total_cache_size_str,
 )
 from recorder import AudioRecorder
 from transcriber import WhisperTranscriber
@@ -257,6 +258,7 @@ class LocalWhisperApp(rumps.App):
         self._model_cache_status: dict[str, bool | None] = {
             name: None for name in MODEL_MAP
         }
+        self._llm_cache_status: bool | None = None
         self._last_input_devices: list[dict] = _get_input_devices()
         self._device_poll_counter: int = 0
 
@@ -361,7 +363,8 @@ class LocalWhisperApp(rumps.App):
         def _check():
             for name in MODEL_MAP:
                 self._model_cache_status[name] = is_whisper_cached(name)
-            log.info(f"Model cache status: {self._model_cache_status}")
+            self._llm_cache_status = is_llm_cached()
+            log.info(f"Model cache status: {self._model_cache_status}, LLM: {self._llm_cache_status}")
             with self._pending_lock:
                 if self._pending_ui is not None:
                     self._pending_ui["refresh_model_menu"] = True
@@ -383,6 +386,87 @@ class LocalWhisperApp(rumps.App):
             if self._state == State.DOWNLOADING:
                 return
         self._download_and_switch_model(model_key)
+
+    def on_settings_delete_model(self, model_key):
+        """Delete a cached whisper model (not the active one)."""
+        if model_key == self._config.model_name:
+            return
+        repo_id = MODEL_MAP.get(model_key)
+        if not repo_id:
+            return
+
+        def _do():
+            if delete_cached_model(repo_id):
+                self._model_cache_status[model_key] = False
+                log.info(f"Deleted model {model_key}")
+            else:
+                self._notify(f"Failed to delete {model_key}")
+            with self._pending_lock:
+                if self._pending_ui is not None:
+                    self._pending_ui["refresh_model_menu"] = True
+                else:
+                    self._pending_ui = {"refresh_model_menu": True}
+
+        threading.Thread(target=_do, daemon=True, name="model-del").start()
+
+    def on_settings_download_llm(self):
+        with self._state_lock:
+            if self._state == State.DOWNLOADING:
+                return
+        size = format_size(LLM_SIZE_MB)
+        with self._state_lock:
+            self._set_state(
+                State.DOWNLOADING,
+                status=f"Downloading cleanup model ({size})\u2026",
+            )
+
+        def _do():
+            try:
+                download_model(LLM_MODEL_REPO)
+                self._llm_cache_status = True
+                with self._state_lock:
+                    self._set_state(State.IDLE)
+                self._notify("Cleanup model ready!")
+                with self._pending_lock:
+                    if self._pending_ui is not None:
+                        self._pending_ui["refresh_model_menu"] = True
+                    else:
+                        self._pending_ui = {"refresh_model_menu": True}
+            except Exception:
+                log.exception("Failed to download LLM")
+                self._notify("Cleanup model download failed")
+                with self._state_lock:
+                    self._set_state(State.IDLE)
+                with self._pending_lock:
+                    if self._pending_ui is not None:
+                        self._pending_ui["llm_download_error"] = True
+                    else:
+                        self._pending_ui = {"llm_download_error": True}
+
+        threading.Thread(target=_do, daemon=True, name="llm-dl").start()
+
+    def on_settings_delete_llm(self):
+        """Delete the cached cleanup LLM."""
+        def _do():
+            if delete_cached_model(LLM_MODEL_REPO):
+                self._llm_cache_status = False
+                log.info("Deleted cleanup LLM")
+            else:
+                self._notify("Failed to delete cleanup model")
+            with self._pending_lock:
+                if self._pending_ui is not None:
+                    self._pending_ui["refresh_model_menu"] = True
+                else:
+                    self._pending_ui = {"refresh_model_menu": True}
+
+        threading.Thread(target=_do, daemon=True, name="llm-del").start()
+
+    def _refresh_storage_info(self):
+        """Update the storage info in settings on a background thread."""
+        def _do():
+            text = f"Models stored in ~/.cache/huggingface/hub \u00b7 {get_total_cache_size_str()} total"
+            self._settings_window.update_storage_info(text)
+        threading.Thread(target=_do, daemon=True, name="storage-info").start()
 
     def on_settings_input_lang(self, code):
         self._config.language = code
@@ -583,15 +667,28 @@ class LocalWhisperApp(rumps.App):
             self._last_text_item.title = f"\u201c{truncated}\u201d"
             self._last_text_item.set_callback(self._on_copy_last)
         if update.get("refresh_model_menu"):
+            active = self._config.model_name
             for name in MODEL_MAP:
                 cached = self._model_cache_status.get(name, False)
-                self._settings_window.update_model_status(name, is_cached=bool(cached))
+                self._settings_window.update_model_status(
+                    name, is_cached=bool(cached), is_active=(name == active)
+                )
+            self._settings_window.update_llm_status(
+                is_cached=bool(self._llm_cache_status)
+            )
+            self._refresh_storage_info()
         if "active_model" in update:
-            active = update["active_model"]
-            self._settings_window.update_model_selection(active)
+            self._settings_window.update_model_selection(update["active_model"])
         if update.get("settings_download_failed"):
             key = update["settings_download_failed"]
-            self._settings_window.update_model_status(key, is_cached=False, is_downloading=False)
+            self._settings_window.update_model_status(
+                key, is_cached=False, is_downloading=False,
+                error_message="Download failed"
+            )
+        if update.get("llm_download_error"):
+            self._settings_window.update_llm_status(
+                is_cached=False, error_message="Download failed"
+            )
 
     # ── State machine ─────────────────────────────────────
 

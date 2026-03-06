@@ -13,6 +13,7 @@ log = logging.getLogger("LocalWhisper")
 from config import (
     MODEL_MAP, MODEL_SIZES_MB, SHORTCUT_PRESETS,
     LANGUAGES as LANG_CODES, RECORDING_DURATIONS,
+    LLM_SIZE_MB,
 )
 from model_manager import format_size
 
@@ -26,7 +27,7 @@ _MODEL_DESCRIPTIONS = {
     "large": "Large -- slowest, best accuracy",
 }
 
-def _build_settings_html(config, model_cache_status, devices):
+def _build_settings_html(config, model_cache_status, llm_cached, devices):
     """Build the full HTML string for the settings window."""
 
     # --- Model radios ---
@@ -35,27 +36,42 @@ def _build_settings_html(config, model_cache_status, devices):
         desc = _MODEL_DESCRIPTIONS.get(key, key)
         size = format_size(MODEL_SIZES_MB.get(key, 0))
         cached = model_cache_status.get(key) is True
-        checked = "checked" if key == config.model_name else ""
-        downloaded_class = "downloaded" if cached else ""
-        status_html = (
-            '<span class="status-downloaded">Downloaded</span>'
-            if cached
-            else f'<button class="dl-btn" onclick="onDownload(\'{key}\')">Download</button>'
-        )
+        is_active = key == config.model_name
+        checked = "checked" if is_active else ""
+        disabled = "" if cached else "disabled"
+        row_class = "" if cached else "model-row--disabled"
+        if cached:
+            delete_html = (
+                "" if is_active
+                else f' <button class="del-btn" onclick="onDelete(\'{key}\')">Delete</button>'
+            )
+            status_html = f'<span class="status-downloaded">Downloaded</span>{delete_html}'
+        else:
+            status_html = f'<button class="dl-btn" onclick="onDownload(\'{key}\')">Download</button>'
         model_rows.append(f"""
-            <label class="model-row" data-key="{key}">
+            <label class="model-row {row_class}" data-key="{key}">
               <div class="model-main">
-                <input type="radio" name="model" value="{key}" {checked}
+                <input type="radio" name="model" value="{key}" {checked} {disabled}
                        onchange="onModelSelect(this.value)">
                 <span class="model-desc">{desc}</span>
                 <span class="size-badge">{size}</span>
               </div>
-              <div class="model-status {downloaded_class}" id="status-{key}">
+              <div class="model-status" id="status-{key}">
                 {status_html}
               </div>
             </label>""")
 
     models_html = "\n".join(model_rows)
+
+    # --- LLM status ---
+    llm_size = format_size(LLM_SIZE_MB)
+    if llm_cached:
+        llm_status_html = (
+            '<span class="status-downloaded">Downloaded</span>'
+            ' <button class="del-btn" onclick="onDeleteLLM()">Delete</button>'
+        )
+    else:
+        llm_status_html = '<button class="dl-btn" onclick="onDownloadLLM()">Download</button>'
 
     # --- Language options ---
     input_lang_options = []
@@ -263,6 +279,61 @@ def _build_settings_html(config, model_cache_status, devices):
     cursor: default;
   }}
 
+  .del-btn {{
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px solid var(--border-glass);
+    border-radius: 6px;
+    padding: 2px 10px;
+    font: 11px -apple-system, BlinkMacSystemFont, sans-serif;
+    cursor: pointer;
+    margin-left: 8px;
+  }}
+
+  .del-btn:hover {{
+    color: #FF453A;
+    border-color: #FF453A;
+  }}
+
+  .del-btn:disabled {{
+    opacity: 0.5;
+    cursor: default;
+  }}
+
+  /* Disabled model row (not downloaded) */
+  .model-row--disabled .model-main {{
+    opacity: 0.35;
+  }}
+
+  .model-row--disabled .model-main input {{
+    pointer-events: none;
+  }}
+
+  .status-error {{
+    font-size: 11px;
+    color: #FF453A;
+    font-weight: 500;
+  }}
+
+  .storage-info {{
+    font-size: 11px;
+    color: var(--text-muted);
+    padding: 6px 4px 0;
+    margin-bottom: 16px;
+  }}
+
+  .llm-detail {{
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }}
+
+  .llm-status {{
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+  }}
+
   /* Spinner for downloading */
   .spinner {{
     display: inline-block;
@@ -343,9 +414,24 @@ def _build_settings_html(config, model_cache_status, devices):
 <body>
 
   <!-- Model -->
-  <div class="section-header">Model</div>
+  <div class="section-header">Whisper Model</div>
   <div class="section-box" id="model-section">
     {models_html}
+  </div>
+  <div class="storage-info" id="storage-info">Calculating storage&hellip;</div>
+
+  <!-- Cleanup LLM -->
+  <div class="section-header">Cleanup Model</div>
+  <div class="section-box">
+    <div class="row">
+      <div>
+        <span class="row-label">Llama 3.2 3B Instruct</span>
+        <div class="llm-detail">{llm_size} &middot; used for &ldquo;Clean up text&rdquo;</div>
+      </div>
+      <div class="llm-status" id="llm-status">
+        {llm_status_html}
+      </div>
+    </div>
   </div>
 
   <!-- Language -->
@@ -419,6 +505,18 @@ def _build_settings_html(config, model_cache_status, devices):
     _msg.postMessage({{action: "model_download", value: key}});
   }}
 
+  function onDelete(key) {{
+    _msg.postMessage({{action: "model_delete", value: key}});
+  }}
+
+  function onDownloadLLM() {{
+    _msg.postMessage({{action: "llm_download"}});
+  }}
+
+  function onDeleteLLM() {{
+    _msg.postMessage({{action: "llm_delete"}});
+  }}
+
   function onInputLang(code) {{
     _msg.postMessage({{action: "input_lang", value: code}});
   }}
@@ -454,27 +552,65 @@ def _build_settings_html(config, model_cache_status, devices):
 
   /* Functions called from Python via evaluateJavaScript */
 
-  function updateModelStatus(key, isCached, isDownloading) {{
+  function updateModelStatus(key, isCached, isDownloading, isActive, errorMessage) {{
     var el = document.getElementById('status-' + key);
+    var row = el ? el.closest('.model-row') : null;
+    if (!el) return;
+
+    if (isDownloading) {{
+      el.innerHTML = '<span class="spinner"></span><span class="downloading-text">Downloading...</span>';
+      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = true; }});
+    }} else if (errorMessage) {{
+      el.innerHTML = '<span class="status-error">' + errorMessage + '</span>' +
+        ' <button class="dl-btn" onclick="onDownload(\'' + key + '\')">Retry</button>';
+      if (row) {{
+        row.classList.add('model-row--disabled');
+        var r = row.querySelector('input[type="radio"]');
+        if (r) {{ r.disabled = true; r.checked = false; }}
+      }}
+      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
+    }} else if (isCached) {{
+      var html = '<span class="status-downloaded">Downloaded</span>';
+      if (!isActive) {{
+        html += ' <button class="del-btn" onclick="onDelete(\'' + key + '\')">Delete</button>';
+      }}
+      el.innerHTML = html;
+      if (row) {{
+        row.classList.remove('model-row--disabled');
+        var r = row.querySelector('input[type="radio"]');
+        if (r) r.disabled = false;
+      }}
+      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
+    }} else {{
+      el.innerHTML = '<button class="dl-btn" onclick="onDownload(\'' + key + '\')">Download</button>';
+      if (row) {{
+        row.classList.add('model-row--disabled');
+        var r = row.querySelector('input[type="radio"]');
+        if (r) {{ r.disabled = true; r.checked = false; }}
+      }}
+      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
+    }}
+  }}
+
+  function updateLLMStatus(isCached, isDownloading, errorMessage) {{
+    var el = document.getElementById('llm-status');
     if (!el) return;
     if (isDownloading) {{
-      el.className = 'model-status';
       el.innerHTML = '<span class="spinner"></span><span class="downloading-text">Downloading...</span>';
-      document.querySelectorAll('.dl-btn').forEach(function(b) {{ b.disabled = true; }});
+    }} else if (errorMessage) {{
+      el.innerHTML = '<span class="status-error">' + errorMessage + '</span>' +
+        ' <button class="dl-btn" onclick="onDownloadLLM()">Retry</button>';
     }} else if (isCached) {{
-      el.className = 'model-status downloaded';
-      el.innerHTML = '<span class="status-downloaded">Downloaded</span>';
-      document.querySelectorAll('.dl-btn').forEach(function(b) {{ b.disabled = false; }});
+      el.innerHTML = '<span class="status-downloaded">Downloaded</span>' +
+        ' <button class="del-btn" onclick="onDeleteLLM()">Delete</button>';
     }} else {{
-      el.className = 'model-status';
-      var btn = document.createElement('button');
-      btn.className = 'dl-btn';
-      btn.textContent = 'Download';
-      btn.onclick = function() {{ onDownload(key); }};
-      el.innerHTML = '';
-      el.appendChild(btn);
-      document.querySelectorAll('.dl-btn').forEach(function(b) {{ b.disabled = false; }});
+      el.innerHTML = '<button class="dl-btn" onclick="onDownloadLLM()">Download</button>';
     }}
+  }}
+
+  function updateStorageInfo(text) {{
+    var el = document.getElementById('storage-info');
+    if (el) el.textContent = text;
   }}
 
   function selectModel(key) {{
@@ -647,6 +783,7 @@ class SettingsWindow:
         html = _build_settings_html(
             self._app._config,
             self._app._model_cache_status,
+            bool(self._app._llm_cache_status),
             self._app._last_input_devices,
         )
         self._wv.loadHTMLString_baseURL_(html, None)
@@ -674,6 +811,19 @@ class SettingsWindow:
             key = body.get("value")
             self.update_model_status(key, is_cached=False, is_downloading=True)
             app.on_settings_download_model(key)
+
+        elif action == "model_delete":
+            key = body.get("value")
+            self.update_model_status(key, is_cached=False, is_downloading=True)
+            app.on_settings_delete_model(key)
+
+        elif action == "llm_download":
+            self.update_llm_status(is_cached=False, is_downloading=True)
+            app.on_settings_download_llm()
+
+        elif action == "llm_delete":
+            self.update_llm_status(is_cached=False, is_downloading=True)
+            app.on_settings_delete_llm()
 
         elif action == "input_lang":
             app.on_settings_input_lang(body.get("value"))
@@ -720,6 +870,8 @@ class SettingsWindow:
             self._win.makeKeyAndOrderFront_(None)
             from AppKit import NSApp
             NSApp.activateIgnoringOtherApps_(True)
+            # Refresh model/LLM status and storage info
+            self._app._check_model_cache_status()
         except Exception:
             log.exception("Settings window: failed to show")
 
@@ -729,13 +881,31 @@ class SettingsWindow:
             return False
         return self._win.isVisible()
 
-    def update_model_status(self, model_key, is_cached, is_downloading=False):
+    def update_model_status(self, model_key, is_cached, is_downloading=False,
+                            is_active=False, error_message=None):
+        error_js = f"'{error_message}'" if error_message else "null"
         js = (
             f"updateModelStatus('{model_key}', "
             f"{str(is_cached).lower()}, "
-            f"{str(is_downloading).lower()})"
+            f"{str(is_downloading).lower()}, "
+            f"{str(is_active).lower()}, "
+            f"{error_js})"
         )
         self._eval_js(js)
+
+    def update_llm_status(self, is_cached, is_downloading=False, error_message=None):
+        error_js = f"'{error_message}'" if error_message else "null"
+        js = (
+            f"updateLLMStatus("
+            f"{str(is_cached).lower()}, "
+            f"{str(is_downloading).lower()}, "
+            f"{error_js})"
+        )
+        self._eval_js(js)
+
+    def update_storage_info(self, text):
+        escaped = text.replace("'", "\\'")
+        self._eval_js(f"updateStorageInfo('{escaped}')")
 
     def update_model_selection(self, model_key):
         self._eval_js(f"selectModel('{model_key}')")
