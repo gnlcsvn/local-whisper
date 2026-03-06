@@ -533,6 +533,14 @@
   }
   .trans-glow { animation: trans-glow-pulse 1.6s ease-in-out infinite; }
 
+  .trans-letter-web {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    text-anchor: middle;
+    dominant-baseline: central;
+    transition: opacity 0.5s ease-in-out;
+  }
+
   /* ─── TRANSLATION SECTION ─── */
   .translate-flow {
     display: flex;
@@ -743,29 +751,6 @@
     background: var(--border-subtle);
   }
 
-  /* ─── ICON SIZES ROW ─── */
-  .icon-sizes-row {
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
-    gap: 24px;
-    margin-top: 48px;
-    flex-wrap: wrap;
-  }
-
-  .icon-sizes-row .size-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .icon-sizes-row .size-label {
-    font-size: 10px;
-    color: var(--text-muted);
-    font-weight: 600;
-  }
-
   /* ─── FOOTER ─── */
   footer {
     padding: 48px 24px;
@@ -885,7 +870,7 @@
   <div class="icon-hero">
     <div class="icon-ring" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:280px;height:280px;border-radius:50%;border:1px solid rgba(108,99,255,0.08);animation:pulse-ring 4s ease-in-out infinite;"></div>
     <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:360px;height:360px;border-radius:50%;border:1px solid rgba(108,99,255,0.05);animation:pulse-ring 4s 1s ease-in-out infinite;"></div>
-    <svg width="200" height="200" viewBox="0 0 120 120">
+    <svg viewBox="0 0 120 120" width="200" height="200" style="filter: drop-shadow(0 20px 60px rgba(108,99,255,0.25));">
       <defs>
         <linearGradient id="hero-bg" x1="0.5" y1="0" x2="0.5" y2="1">
           <stop offset="0%" stop-color="#2D2B55"/>
@@ -895,18 +880,12 @@
           <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
           <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
         </linearGradient>
-        <linearGradient id="hero-spec" x1="0.2" y1="0" x2="0.8" y2="0.5">
-          <stop offset="0%" stop-color="white" stop-opacity="0.4"/>
-          <stop offset="100%" stop-color="white" stop-opacity="0"/>
-        </linearGradient>
         <filter id="hero-shadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.3"/></filter>
       </defs>
       <rect width="120" height="120" rx="26" fill="url(#hero-bg)"/>
       <g filter="url(#hero-shadow)">
-        <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="url(#hero-glass)" fill-rule="evenodd"/>
-        <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="0.5" fill-rule="evenodd"/>
+        <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="url(#hero-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
       </g>
-      <ellipse cx="52" cy="12" rx="28" ry="8" fill="url(#hero-spec)" opacity="0.3"/>
       <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
       <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
       <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
@@ -1078,96 +1057,14 @@
             <!-- Dual spinning arcs -->
             <circle class="trans-arc-cw" cx="60" cy="74" r="18" fill="none" stroke="#5AC8FA" stroke-width="6.6" stroke-dasharray="22 91" stroke-linecap="round" opacity="0.8"/>
             <circle class="trans-arc-ccw" cx="60" cy="74" r="18" fill="none" stroke="#6C63FF" stroke-width="6.6" stroke-dasharray="22 91" stroke-linecap="round" opacity="0.7"/>
+            <text class="trans-letter-web" x="60" y="75" font-size="16" fill="#EEEDF5" opacity="0.35" text-anchor="middle" dominant-baseline="central" font-family="'DM Sans',sans-serif" font-weight="600">&#x0414;</text>
           </svg>
         </div>
         <div class="state-label" style="color: #5AC8FA;">Translating</div>
-        <div class="state-desc">Dual arcs with teal glow<br>Language model active</div>
+        <div class="state-desc">Dual arcs with cycling scripts<br>Language model active</div>
       </div>
     </div>
 
-    <!-- Size row showing the icon at various sizes -->
-    <div class="icon-sizes-row">
-      <div class="size-item">
-        <svg viewBox="0 0 120 120" width="16" height="16">
-          <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
-          <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="68.5" y="56.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="79.6" y="69.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-        </svg>
-        <span class="size-label">16px</span>
-      </div>
-      <div class="size-item">
-        <svg viewBox="0 0 120 120" width="22" height="22">
-          <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
-          <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="68.5" y="56.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="79.6" y="69.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-        </svg>
-        <span class="size-label">22px</span>
-      </div>
-      <div class="size-item">
-        <svg viewBox="0 0 120 120" width="40" height="40">
-          <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="rgba(255,255,255,0.6)" fill-rule="evenodd"/>
-          <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="68.5" y="56.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="79.6" y="69.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-        </svg>
-        <span class="size-label">40px</span>
-      </div>
-      <div class="size-item">
-        <svg viewBox="0 0 120 120" width="64" height="64">
-          <defs>
-            <linearGradient id="sz-bg" x1="0.5" y1="0" x2="0.5" y2="1">
-              <stop offset="0%" stop-color="#2D2B55"/>
-              <stop offset="100%" stop-color="#15132B"/>
-            </linearGradient>
-            <linearGradient id="sz-glass" x1="0.3" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
-              <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
-            </linearGradient>
-          </defs>
-          <rect width="120" height="120" rx="26" fill="url(#sz-bg)"/>
-          <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="url(#sz-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
-          <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="68.5" y="56.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="79.6" y="69.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-        </svg>
-        <span class="size-label">64px</span>
-      </div>
-      <div class="size-item">
-        <svg viewBox="0 0 120 120" width="120" height="120">
-          <defs>
-            <linearGradient id="sz2-bg" x1="0.5" y1="0" x2="0.5" y2="1">
-              <stop offset="0%" stop-color="#2D2B55"/>
-              <stop offset="100%" stop-color="#15132B"/>
-            </linearGradient>
-            <linearGradient id="sz2-glass" x1="0.3" y1="0" x2="0.6" y2="1">
-              <stop offset="0%" stop-color="rgba(255,255,255,0.18)"/>
-              <stop offset="100%" stop-color="rgba(255,255,255,0.08)"/>
-            </linearGradient>
-            <filter id="sz2-shadow"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-opacity="0.3"/></filter>
-          </defs>
-          <rect width="120" height="120" rx="26" fill="url(#sz2-bg)"/>
-          <g filter="url(#sz2-shadow)">
-            <path d="M 36.8 44.2 L 41.1 44.2 L 41.1 32.3 A 19 19 0 0 1 78.9 32.3 L 78.9 44.2 L 83.2 44.2 Q 92.4 44.2 92.4 53.6 L 92.4 90 Q 92.4 99.4 83.2 99.4 L 36.8 99.4 Q 27.6 99.4 27.6 90 L 27.6 53.6 Q 27.6 44.2 36.8 44.2 Z M 50 44.2 L 50 32.3 A 11 11 0 0 1 70 32.3 L 70 44.2 Z" fill="url(#sz2-glass)" fill-rule="evenodd" stroke="rgba(255,255,255,0.15)" stroke-width="0.5"/>
-          </g>
-          <rect x="35.2" y="67.9" width="6.6" height="15.3" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="46.3" y="59.1" width="6.6" height="25.8" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="57.4" y="64" width="6.6" height="20" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-          <rect x="68.5" y="56.7" width="6.6" height="29.3" rx="3.3" fill="#6C63FF" opacity="0.95"/>
-          <rect x="79.6" y="69.7" width="6.6" height="11.7" rx="3.3" fill="#5AC8FA" opacity="0.6"/>
-        </svg>
-        <span class="size-label">120px</span>
-      </div>
-    </div>
   </div>
 </section>
 
@@ -1295,7 +1192,7 @@
             <td>460 MB</td>
             <td>Fast</td>
             <td>Good</td>
-            <td></td>
+            <td><span class="tag tag-fast">Compact</span></td>
           </tr>
           <tr>
             <td class="model-name">Turbo</td>
@@ -1392,6 +1289,23 @@
   }, { threshold: 0.12 });
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+  // Cycling language letters for translating animation
+  (function() {
+    var letters = ['\u0414', '\u6587', '\u3042', '\uD55C', '\u03A3', '\u00C4'];
+    var li = 0;
+    setInterval(function() {
+      var els = document.querySelectorAll('.trans-letter-web');
+      els.forEach(function(el) { el.setAttribute('opacity', '0'); });
+      setTimeout(function() {
+        li = (li + 1) % letters.length;
+        els.forEach(function(el) {
+          el.textContent = letters[li];
+          el.setAttribute('opacity', '0.35');
+        });
+      }, 500);
+    }, 1800);
+  })();
 </script>
 
 </body>
