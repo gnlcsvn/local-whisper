@@ -43,23 +43,23 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
         if cached:
             delete_html = (
                 "" if is_active
-                else f' <button class="del-btn" onclick="onDelete(\'{key}\')">Delete</button>'
+                else f' <button class="del-btn" data-action="delete" data-key="{key}">Delete</button>'
             )
             status_html = f'<span class="status-downloaded">Downloaded</span>{delete_html}'
         else:
-            status_html = f'<button class="dl-btn" onclick="onDownload(\'{key}\')">Download</button>'
+            status_html = f'<button class="dl-btn" data-action="download" data-key="{key}">Download</button>'
         model_rows.append(f"""
-            <label class="model-row {row_class}" data-key="{key}">
-              <div class="model-main">
+            <div class="model-row {row_class}" data-key="{key}">
+              <label class="model-main">
                 <input type="radio" name="model" value="{key}" {checked} {disabled}
                        onchange="onModelSelect(this.value)">
                 <span class="model-desc">{desc}</span>
                 <span class="size-badge">{size}</span>
-              </div>
+              </label>
               <div class="model-status" id="status-{key}">
                 {status_html}
               </div>
-            </label>""")
+            </div>""")
 
     models_html = "\n".join(model_rows)
 
@@ -68,10 +68,10 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
     if llm_cached:
         llm_status_html = (
             '<span class="status-downloaded">Downloaded</span>'
-            ' <button class="del-btn" onclick="onDeleteLLM()">Delete</button>'
+            ' <button class="del-btn" data-action="delete-llm">Delete</button>'
         )
     else:
-        llm_status_html = '<button class="dl-btn" onclick="onDownloadLLM()">Download</button>'
+        llm_status_html = '<button class="dl-btn" data-action="download-llm">Download</button>'
 
     # --- Language options ---
     input_lang_options = []
@@ -501,21 +501,24 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
     _msg.postMessage({{action: "model_select", value: key}});
   }}
 
-  function onDownload(key) {{
-    _msg.postMessage({{action: "model_download", value: key}});
-  }}
-
-  function onDelete(key) {{
-    _msg.postMessage({{action: "model_delete", value: key}});
-  }}
-
-  function onDownloadLLM() {{
-    _msg.postMessage({{action: "llm_download"}});
-  }}
-
-  function onDeleteLLM() {{
-    _msg.postMessage({{action: "llm_delete"}});
-  }}
+  /* Event delegation for all buttons — more reliable in WKWebView than inline onclick */
+  document.addEventListener('click', function(e) {{
+    var btn = e.target.closest('.dl-btn, .del-btn');
+    if (!btn || btn.disabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var action = btn.getAttribute('data-action');
+    var key = btn.getAttribute('data-key');
+    if (action === 'download' && key) {{
+      _msg.postMessage({{action: "model_download", value: key}});
+    }} else if (action === 'delete' && key) {{
+      _msg.postMessage({{action: "model_delete", value: key}});
+    }} else if (action === 'download-llm') {{
+      _msg.postMessage({{action: "llm_download"}});
+    }} else if (action === 'delete-llm') {{
+      _msg.postMessage({{action: "llm_delete"}});
+    }}
+  }});
 
   function onInputLang(code) {{
     _msg.postMessage({{action: "input_lang", value: code}});
@@ -558,21 +561,19 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
     if (!el) return;
 
     if (isDownloading) {{
-      el.innerHTML = '<span class="spinner"></span><span class="downloading-text">Downloading...</span>';
-      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = true; }});
+      el.innerHTML = '<span class="spinner"></span><span class="downloading-text">Downloading\u2026</span>';
     }} else if (errorMessage) {{
       el.innerHTML = '<span class="status-error">' + errorMessage + '</span>' +
-        ' <button class="dl-btn" onclick="onDownload(\'' + key + '\')">Retry</button>';
+        ' <button class="dl-btn" data-action="download" data-key="' + key + '">Retry</button>';
       if (row) {{
         row.classList.add('model-row--disabled');
         var r = row.querySelector('input[type="radio"]');
         if (r) {{ r.disabled = true; r.checked = false; }}
       }}
-      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
     }} else if (isCached) {{
       var html = '<span class="status-downloaded">Downloaded</span>';
       if (!isActive) {{
-        html += ' <button class="del-btn" onclick="onDelete(\'' + key + '\')">Delete</button>';
+        html += ' <button class="del-btn" data-action="delete" data-key="' + key + '">Delete</button>';
       }}
       el.innerHTML = html;
       if (row) {{
@@ -580,15 +581,13 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
         var r = row.querySelector('input[type="radio"]');
         if (r) r.disabled = false;
       }}
-      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
     }} else {{
-      el.innerHTML = '<button class="dl-btn" onclick="onDownload(\'' + key + '\')">Download</button>';
+      el.innerHTML = '<button class="dl-btn" data-action="download" data-key="' + key + '">Download</button>';
       if (row) {{
         row.classList.add('model-row--disabled');
         var r = row.querySelector('input[type="radio"]');
         if (r) {{ r.disabled = true; r.checked = false; }}
       }}
-      document.querySelectorAll('.dl-btn, .del-btn').forEach(function(b) {{ b.disabled = false; }});
     }}
   }}
 
@@ -599,12 +598,12 @@ def _build_settings_html(config, model_cache_status, llm_cached, devices):
       el.innerHTML = '<span class="spinner"></span><span class="downloading-text">Downloading...</span>';
     }} else if (errorMessage) {{
       el.innerHTML = '<span class="status-error">' + errorMessage + '</span>' +
-        ' <button class="dl-btn" onclick="onDownloadLLM()">Retry</button>';
+        ' <button class="dl-btn" data-action="download-llm">Retry</button>';
     }} else if (isCached) {{
       el.innerHTML = '<span class="status-downloaded">Downloaded</span>' +
-        ' <button class="del-btn" onclick="onDeleteLLM()">Delete</button>';
+        ' <button class="del-btn" data-action="delete-llm">Delete</button>';
     }} else {{
-      el.innerHTML = '<button class="dl-btn" onclick="onDownloadLLM()">Download</button>';
+      el.innerHTML = '<button class="dl-btn" data-action="download-llm">Download</button>';
     }}
   }}
 
@@ -814,7 +813,10 @@ class SettingsWindow:
 
         elif action == "model_delete":
             key = body.get("value")
-            self.update_model_status(key, is_cached=False, is_downloading=True)
+            self._eval_js(
+                f"document.getElementById('status-{key}').innerHTML = "
+                f"'<span class=\"downloading-text\">Deleting\u2026</span>'"
+            )
             app.on_settings_delete_model(key)
 
         elif action == "llm_download":
@@ -822,7 +824,10 @@ class SettingsWindow:
             app.on_settings_download_llm()
 
         elif action == "llm_delete":
-            self.update_llm_status(is_cached=False, is_downloading=True)
+            self._eval_js(
+                "document.getElementById('llm-status').innerHTML = "
+                "'<span class=\"downloading-text\">Deleting\u2026</span>'"
+            )
             app.on_settings_delete_llm()
 
         elif action == "input_lang":

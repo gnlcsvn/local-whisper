@@ -259,6 +259,9 @@ class LocalWhisperApp(rumps.App):
             name: None for name in MODEL_MAP
         }
         self._llm_cache_status: bool | None = None
+        self._downloading_models: set[str] = set()  # models currently being downloaded
+        self._downloading_llm: bool = False
+
         self._last_input_devices: list[dict] = _get_input_devices()
         self._device_poll_counter: int = 0
 
@@ -380,11 +383,14 @@ class LocalWhisperApp(rumps.App):
         self._config.model_name = model_key
         self._transcriber.change_model(model_key)
         _save_settings(self._config)
+        # Refresh UI so delete buttons update for old/new active model
+        with self._pending_lock:
+            if self._pending_ui is not None:
+                self._pending_ui["refresh_model_menu"] = True
+            else:
+                self._pending_ui = {"refresh_model_menu": True}
 
     def on_settings_download_model(self, model_key):
-        with self._state_lock:
-            if self._state == State.DOWNLOADING:
-                return
         self._download_and_switch_model(model_key)
 
     def on_settings_delete_model(self, model_key):
@@ -410,22 +416,15 @@ class LocalWhisperApp(rumps.App):
         threading.Thread(target=_do, daemon=True, name="model-del").start()
 
     def on_settings_download_llm(self):
-        with self._state_lock:
-            if self._state == State.DOWNLOADING:
-                return
-        size = format_size(LLM_SIZE_MB)
-        with self._state_lock:
-            self._set_state(
-                State.DOWNLOADING,
-                status=f"Downloading cleanup model ({size})\u2026",
-            )
+        if self._downloading_llm:
+            return
+        self._downloading_llm = True
 
         def _do():
             try:
                 download_model(LLM_MODEL_REPO)
+                self._downloading_llm = False
                 self._llm_cache_status = True
-                with self._state_lock:
-                    self._set_state(State.IDLE)
                 self._notify("Cleanup model ready!")
                 with self._pending_lock:
                     if self._pending_ui is not None:
@@ -433,10 +432,9 @@ class LocalWhisperApp(rumps.App):
                     else:
                         self._pending_ui = {"refresh_model_menu": True}
             except Exception:
+                self._downloading_llm = False
                 log.exception("Failed to download LLM")
                 self._notify("Cleanup model download failed")
-                with self._state_lock:
-                    self._set_state(State.IDLE)
                 with self._pending_lock:
                     if self._pending_ui is not None:
                         self._pending_ui["llm_download_error"] = True
@@ -669,13 +667,16 @@ class LocalWhisperApp(rumps.App):
         if update.get("refresh_model_menu"):
             active = self._config.model_name
             for name in MODEL_MAP:
+                if name in self._downloading_models:
+                    continue  # don't overwrite spinner for in-progress downloads
                 cached = self._model_cache_status.get(name, False)
                 self._settings_window.update_model_status(
                     name, is_cached=bool(cached), is_active=(name == active)
                 )
-            self._settings_window.update_llm_status(
-                is_cached=bool(self._llm_cache_status)
-            )
+            if not self._downloading_llm:
+                self._settings_window.update_llm_status(
+                    is_cached=bool(self._llm_cache_status)
+                )
             self._refresh_storage_info()
         if "active_model" in update:
             self._settings_window.update_model_selection(update["active_model"])
@@ -730,25 +731,20 @@ class LocalWhisperApp(rumps.App):
 
     def _download_and_switch_model(self, model_name: str):
         """Download an uncached Whisper model, then switch to it."""
+        if model_name in self._downloading_models:
+            return
         repo_id = MODEL_MAP[model_name]
-        size = format_size(MODEL_SIZES_MB.get(model_name, 0))
-
-        with self._state_lock:
-            self._set_state(
-                State.DOWNLOADING,
-                status=f"Downloading {model_name} ({size})\u2026",
-            )
+        self._downloading_models.add(model_name)
 
         def _do_download():
             try:
                 download_model(repo_id)
+                self._downloading_models.discard(model_name)
                 self._model_cache_status[model_name] = True
                 self._config.model_name = model_name
                 self._transcriber.change_model(model_name)
                 _save_settings(self._config)
 
-                with self._state_lock:
-                    self._set_state(State.IDLE)
                 self._notify(f"{model_name.title()} model ready!")
                 with self._pending_lock:
                     if self._pending_ui is not None:
@@ -760,17 +756,16 @@ class LocalWhisperApp(rumps.App):
                             "active_model": model_name,
                         }
             except Exception:
+                self._downloading_models.discard(model_name)
                 log.exception(f"Failed to download model {model_name}")
                 self._notify(f"Download failed for {model_name}")
-                with self._state_lock:
-                    self._set_state(State.IDLE)
                 with self._pending_lock:
                     if self._pending_ui is not None:
                         self._pending_ui["settings_download_failed"] = model_name
                     else:
                         self._pending_ui = {"settings_download_failed": model_name}
 
-        threading.Thread(target=_do_download, daemon=True, name="model-dl").start()
+        threading.Thread(target=_do_download, daemon=True, name=f"dl-{model_name}").start()
 
     def _ensure_default_model(self):
         """On first launch, download the default model if not cached."""
