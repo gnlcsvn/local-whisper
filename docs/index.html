@@ -740,13 +740,13 @@
 
   <div class="hero-badge">
     <span class="dot"></span>
-    100% offline · Apple Silicon native
+    100% offline · Runs on your Mac
   </div>
 
   <h1>Dictation that<br><em>never leaves</em><br>your Mac</h1>
 
   <p class="hero-sub">
-    Press a hotkey, speak, release. Your words appear at the cursor — transcribed locally on Apple Silicon. No cloud, no account, no data collected.
+    Press a hotkey, speak, done. Your words appear at the cursor — transcribed entirely on your Mac. No cloud, no account, no data collected.
   </p>
 
   <div class="hero-actions">
@@ -794,14 +794,14 @@
     <div class="section-label">Zero-trust privacy</div>
     <div class="section-title">Your voice stays<br>on your hardware</div>
     <p class="section-desc">
-      No servers. No API keys. No analytics. Audio goes from microphone to mlx-whisper to your cursor — then it's gone. Nothing is ever written to disk.
+      No servers. No API keys. No analytics. Audio goes from your microphone to your cursor — then it's gone. Nothing is ever written to disk.
     </p>
 
     <div class="privacy-grid">
       <div class="privacy-card">
         <div class="icon-wrap">&#x1f512;</div>
         <h3>No network requests</h3>
-        <p>After the initial model download from HuggingFace, LocalWhisper never makes a single network call. Verify it yourself — it's open source.</p>
+        <p>After the initial model download, LocalWhisper never makes a single network call. Verify it yourself — it's open source.</p>
       </div>
       <div class="privacy-card">
         <div class="icon-wrap">&#x1f4be;</div>
@@ -821,26 +821,26 @@
 <section id="how" style="background: var(--bg-card);">
   <div class="container reveal">
     <div class="section-label">Workflow</div>
-    <div class="section-title">Three keystrokes.<br>That's the entire UX.</div>
+    <div class="section-title">Three steps.<br>That's it.</div>
 
     <div class="how-steps">
       <div class="how-step">
         <div class="step-num">1</div>
-        <h3>Press the hotkey</h3>
-        <p>Recording starts instantly. A floating overlay appears with pulsing red bars.</p>
+        <h3>Press your hotkey</h3>
+        <p>Double-tap Ctrl, press a key combo &mdash; your choice. Recording starts instantly with a floating overlay.</p>
         <div class="hotkey">
-          <kbd>Ctrl</kbd><span>+</span><kbd>Shift</kbd><span>+</span><kbd>D</kbd>
+          <kbd>Ctrl</kbd><span>+</span><kbd>Ctrl</kbd>
         </div>
       </div>
       <div class="how-step">
         <div class="step-num">2</div>
         <h3>Speak naturally</h3>
-        <p>Talk at your normal pace in any supported language. Auto-stops after 2 minutes, or press the hotkey again.</p>
+        <p>Talk at your normal pace in any language. Press the hotkey again when you're done, or let it auto-stop.</p>
       </div>
       <div class="how-step">
         <div class="step-num">3</div>
         <h3>Text appears</h3>
-        <p>mlx-whisper transcribes on your GPU, optionally cleans up the text, then pastes it at your cursor in any app.</p>
+        <p>Your speech is transcribed on-device in seconds and pasted right where your cursor is. Works in any app.</p>
       </div>
     </div>
   </div>
@@ -976,7 +976,7 @@
       <div class="privacy-card">
         <div class="icon-wrap">&#x1f52e;</div>
         <h3>Translate to English</h3>
-        <p>Speak in any language and get English output using Whisper's built-in translation &mdash; no extra model needed.</p>
+        <p>Speak in any language and get English output &mdash; translation happens on-device, no extra download needed.</p>
       </div>
       <div class="privacy-card">
         <div class="icon-wrap">&#x2728;</div>
@@ -985,8 +985,8 @@
       </div>
       <div class="privacy-card">
         <div class="icon-wrap">&#x26a1;</div>
-        <h3>5 Whisper models</h3>
-        <p>From Tiny (75 MB, instant) to Large (3 GB, best accuracy). Pick your speed/quality balance in Settings.</p>
+        <h3>5 model sizes</h3>
+        <p>From Tiny (75 MB, near-instant) to Large (3 GB, best accuracy). Pick your speed vs. quality preference in Settings.</p>
       </div>
       <div class="privacy-card">
         <div class="icon-wrap">&#x2328;</div>
@@ -1008,7 +1008,7 @@
     <div class="section-label">Text cleanup</div>
     <div class="section-title">From raw speech<br>to clean text</div>
     <p class="section-desc">
-      An on-device LLM removes the &ldquo;ums&rdquo; and fixes the grammar &mdash; without changing what you said.
+      Toggle &ldquo;Clean up&rdquo; and the app removes the &ldquo;ums&rdquo;, fixes grammar, and cuts false starts &mdash; without changing what you said. All on-device.
     </p>
 
     <div class="style-cards" style="margin-top: 56px;">
@@ -1059,7 +1059,7 @@
       </div>
 
       <p style="font-size: 12px; color: var(--text-muted); margin-top: 16px;">
-        Requires macOS 13+ &middot; Apple Silicon &middot; Python 3.10+ &middot; ffmpeg
+        Requires a Mac with Apple Silicon (M1 or later) &middot; macOS 13+
       </p>
     </div>
   </div>
