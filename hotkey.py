@@ -54,8 +54,9 @@ class HotkeyListener:
     Changing shortcuts only swaps internal detection logic — no event tap teardown.
     """
 
-    def __init__(self, shortcut_config: dict, callback):
+    def __init__(self, shortcut_config: dict, callback, cancel_callback=None):
         self._callback = callback
+        self._cancel_callback = cancel_callback
         self._lock = threading.Lock()  # protects config fields
         self._listener: keyboard.Listener | None = None
         self._stop_event = threading.Event()
@@ -139,6 +140,14 @@ class HotkeyListener:
         if self._event_count < 5:
             self._event_count += 1
             log.info(f"Key press event received: {key} (mode={self._mode})")
+
+        # Escape always cancels, independent of shortcut mode
+        if key == keyboard.Key.esc and self._cancel_callback is not None:
+            try:
+                self._cancel_callback()
+            except Exception:
+                log.exception("Error in cancel callback")
+            return
 
         with self._lock:
             # Track modifier state

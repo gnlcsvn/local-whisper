@@ -12,7 +12,7 @@ log = logging.getLogger("LocalWhisper")
 
 from config import (
     MODEL_MAP, MODEL_SIZES_MB, SHORTCUT_PRESETS,
-    LANGUAGES as LANG_CODES, TEXT_STYLES, RECORDING_DURATIONS,
+    LANGUAGES as LANG_CODES, RECORDING_DURATIONS,
 )
 from model_manager import format_size
 
@@ -25,10 +25,6 @@ _MODEL_DESCRIPTIONS = {
     "medium": "Medium -- slower, better accuracy",
     "large": "Large -- slowest, best accuracy",
 }
-
-# Languages without "auto" for the output dropdown
-_OUTPUT_LANGUAGES = {code: name for code, name in LANG_CODES.items() if code != "auto"}
-
 
 def _build_settings_html(config, model_cache_status, devices):
     """Build the full HTML string for the settings window."""
@@ -67,20 +63,8 @@ def _build_settings_html(config, model_cache_status, devices):
         sel = "selected" if code == config.language else ""
         input_lang_options.append(f'<option value="{code}" {sel}>{name}</option>')
 
-    output_lang_options = []
-    for code, name in _OUTPUT_LANGUAGES.items():
-        sel = "selected" if code == config.output_language else ""
-        output_lang_options.append(f'<option value="{code}" {sel}>{name}</option>')
-
-    translate_checked = "checked" if config.translate else ""
-    output_disabled = "" if config.translate else "disabled"
-    output_dimmed = "" if config.translate else "dimmed"
-
-    # --- Text style options ---
-    style_options = []
-    for sid, label in TEXT_STYLES.items():
-        sel = "selected" if sid == config.text_style else ""
-        style_options.append(f'<option value="{sid}" {sel}>{label}</option>')
+    translate_checked = "checked" if config.translate_to_english else ""
+    cleanup_checked = "checked" if config.cleanup else ""
 
     # --- Microphone options ---
     mic_options = ['<option value="default" selected>System Default</option>']
@@ -374,19 +358,12 @@ def _build_settings_html(config, model_cache_status, devices):
       </select>
     </div>
     <div class="row">
-      <span class="row-label">Translate</span>
+      <span class="row-label">Translate to English</span>
       <label class="toggle">
         <input type="checkbox" id="translate-toggle" {translate_checked}
-               onchange="onTranslateToggle(this.checked)">
+               onchange="onTranslateToEnglish(this.checked)">
         <span class="slider"></span>
       </label>
-    </div>
-    <div class="row">
-      <span class="row-label">Output Language</span>
-      <select id="output-lang" class="{output_dimmed}" {output_disabled}
-              onchange="onOutputLang(this.value)">
-        {''.join(output_lang_options)}
-      </select>
     </div>
   </div>
 
@@ -394,10 +371,12 @@ def _build_settings_html(config, model_cache_status, devices):
   <div class="section-header">Text Processing</div>
   <div class="section-box">
     <div class="row">
-      <span class="row-label">Style</span>
-      <select id="text-style" onchange="onTextStyle(this.value)">
-        {''.join(style_options)}
-      </select>
+      <span class="row-label">Clean up text</span>
+      <label class="toggle">
+        <input type="checkbox" id="cleanup-toggle" {cleanup_checked}
+               onchange="onCleanup(this.checked)">
+        <span class="slider"></span>
+      </label>
     </div>
   </div>
 
@@ -444,19 +423,12 @@ def _build_settings_html(config, model_cache_status, devices):
     _msg.postMessage({{action: "input_lang", value: code}});
   }}
 
-  function onOutputLang(code) {{
-    _msg.postMessage({{action: "output_lang", value: code}});
+  function onTranslateToEnglish(enabled) {{
+    _msg.postMessage({{action: "translate_to_english", value: enabled}});
   }}
 
-  function onTranslateToggle(enabled) {{
-    var sel = document.getElementById('output-lang');
-    sel.disabled = !enabled;
-    sel.classList.toggle('dimmed', !enabled);
-    _msg.postMessage({{action: "translate_toggle", value: enabled}});
-  }}
-
-  function onTextStyle(styleId) {{
-    _msg.postMessage({{action: "text_style", value: styleId}});
+  function onCleanup(enabled) {{
+    _msg.postMessage({{action: "cleanup_toggle", value: enabled}});
   }}
 
   function onMaxRecording(secs) {{
@@ -706,14 +678,11 @@ class SettingsWindow:
         elif action == "input_lang":
             app.on_settings_input_lang(body.get("value"))
 
-        elif action == "output_lang":
-            app.on_settings_output_lang(body.get("value"))
+        elif action == "translate_to_english":
+            app.on_settings_translate_to_english(bool(body.get("value")))
 
-        elif action == "translate_toggle":
-            app.on_settings_translate_toggle(bool(body.get("value")))
-
-        elif action == "text_style":
-            app.on_settings_text_style(body.get("value"))
+        elif action == "cleanup_toggle":
+            app.on_settings_cleanup_toggle(bool(body.get("value")))
 
         elif action == "max_recording":
             app.on_settings_max_recording(int(body.get("value")))

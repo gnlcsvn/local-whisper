@@ -1,7 +1,7 @@
-"""Local LLM for translation and text processing via mlx-lm.
+"""Local LLM for text cleanup via mlx-lm.
 
 Uses a small instruction-tuned model (Llama-3.2-3B-Instruct, ~1.8GB 4-bit)
-for translation, rephrasing, and text cleanup. Lazy-loaded on first use.
+for cleaning up transcribed text. Lazy-loaded on first use.
 """
 import logging
 
@@ -27,7 +27,7 @@ _LANG_NAMES = {
 
 
 class LLMProcessor:
-    """Lazy-loaded local LLM for text processing tasks."""
+    """Lazy-loaded local LLM for text cleanup."""
 
     def __init__(self, model_repo: str = LLM_MODEL_REPO):
         self._model_repo = model_repo
@@ -80,7 +80,7 @@ class LLMProcessor:
     def _strip_preamble(text: str) -> str:
         """Remove common LLM preamble patterns from the output."""
         import re
-        # Strip lines like "Here is the rewritten text...:" or "Here's the translation:"
+        # Strip lines like "Here is the cleaned text...:" etc.
         text = re.sub(
             r'^(?:Here(?:\'s| is) (?:the |a |my )?(?:rewritten|translated|cleaned|corrected|formal|casual)[\w\s,]*?[.:]\s*\n?)',
             '', text, flags=re.IGNORECASE
@@ -90,106 +90,20 @@ class LLMProcessor:
             text = text[1:-1]
         return text.strip()
 
-    # ── Translation ──────────────────────────────────────
-
-    def translate(self, text: str, source_lang: str, target_lang: str) -> str:
-        """Translate text between languages.
-
-        For source_lang="auto", the LLM will auto-detect.
-        """
-        if not text.strip() or source_lang == target_lang:
-            return text
-
-        src_name = _LANG_NAMES.get(source_lang, source_lang)
-        tgt_name = _LANG_NAMES.get(target_lang, target_lang)
-
-        if source_lang == "auto":
-            prompt = (
-                f"Translate the following text to {tgt_name}. "
-                f"Output ONLY the translation, nothing else.\n\n{text}"
-            )
-        else:
-            prompt = (
-                f"Translate the following {src_name} text to {tgt_name}. "
-                f"Output ONLY the translation, nothing else.\n\n{text}"
-            )
-
-        result = self._generate(prompt, max_tokens=len(text) * 3)
-        log.info(f"Translation ({src_name}->{tgt_name}): {result[:80]}")
-        return result
-
-    # ── Text processing ─────────────────────────────────
-
-    _STYLE_INSTRUCTIONS = {
-        "clean": (
-            "Fix punctuation, capitalization, spelling, and grammar in this {lang} text. "
-            "Do not change the meaning or add new content. "
-            "Reply in {lang} only."
-        ),
-        "formal": (
-            "Make the tone of this {lang} text slightly more polished and professional. "
-            "Fix punctuation, spelling, and grammar. "
-            "Do not change the meaning, do not add or remove sentences. "
-            "Reply in {lang} only."
-        ),
-        "casual": (
-            "Make the tone of this {lang} text slightly more conversational. "
-            "Fix punctuation, spelling, and grammar. "
-            "Do not change the meaning, do not add or remove sentences. "
-            "Reply in {lang} only."
-        ),
-    }
-
-    _STYLE_TRANSLATE_INSTRUCTIONS = {
-        "clean": (
-            "Translate the following text to {target}. "
-            "Fix punctuation, capitalization, spelling, and grammar errors. "
-            "Output ONLY the translated and cleaned text."
-        ),
-        "formal": (
-            "Translate the following text to {target} in a formal, professional tone. "
-            "Fix any errors. Output ONLY the result."
-        ),
-        "casual": (
-            "Translate the following text to {target} in a casual, conversational tone. "
-            "Fix any errors. Output ONLY the result."
-        ),
-    }
-
-    def rephrase(self, text: str, style: str = "clean", language: str = "en") -> str:
-        """Rephrase or clean up transcribed text (same language)."""
+    def cleanup(self, text: str, language: str = "en") -> str:
+        """Clean up transcribed text: fix grammar, remove fillers and false starts."""
         if not text.strip():
             return text
 
         lang_name = _LANG_NAMES.get(language, language)
-        template = self._STYLE_INSTRUCTIONS.get(style, self._STYLE_INSTRUCTIONS["clean"])
-        instruction = template.format(lang=lang_name)
-        prompt = f"{instruction}\n\n{text}"
+        prompt = (
+            f"Clean up this {lang_name} transcription. "
+            "Fix punctuation, capitalization, spelling, and grammar. "
+            "Remove filler words (um, uh, ah, like), false starts, and repeated phrases. "
+            "Do not change the meaning or add new content. "
+            f"Output ONLY the cleaned text.\n\n{text}"
+        )
 
         result = self._generate(prompt, max_tokens=len(text) * 2)
-        log.info(f"Rephrase ({style}, {lang_name}): {result[:80]}")
-        return result
-
-    def translate_and_rephrase(self, text: str, source_lang: str,
-                                target_lang: str, style: str) -> str:
-        """Translate and apply text style in a single LLM call."""
-        if not text.strip():
-            return text
-
-        tgt_name = _LANG_NAMES.get(target_lang, target_lang)
-        template = self._STYLE_TRANSLATE_INSTRUCTIONS.get(
-            style, self._STYLE_TRANSLATE_INSTRUCTIONS["clean"]
-        )
-        instruction = template.format(target=tgt_name)
-
-        src_name = _LANG_NAMES.get(source_lang, source_lang)
-        if source_lang != "auto":
-            instruction = instruction.replace(
-                "the following text",
-                f"the following {src_name} text",
-            )
-
-        prompt = f"{instruction}\n\n{text}"
-        result = self._generate(prompt, max_tokens=len(text) * 3)
-        log.info(f"Translate+rephrase ({src_name}->{tgt_name}, {style}): {result[:80]}")
+        log.info(f"Cleanup ({lang_name}): {result[:80]}")
         return result

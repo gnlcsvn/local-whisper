@@ -44,14 +44,6 @@ RECORDING_DURATIONS = {
     600: "10 minutes",
 }
 
-# Text processing styles (LLM post-processing of transcription)
-TEXT_STYLES = {
-    "off": "Off",
-    "clean": "Clean up",
-    "formal": "Formal",
-    "casual": "Casual",
-}
-
 # Shortcut presets: id -> (display_label, type, config)
 SHORTCUT_PRESETS = {
     "ctrl_shift_d": {
@@ -90,9 +82,8 @@ class Config:
     sample_rate: int = 16_000
     max_recording_seconds: int = 120
     language: str = "de"           # input language (what you speak)
-    output_language: str = "de"    # output language (what gets typed)
-    translate: bool = False        # enable translation mode
-    text_style: str = "off"        # off, clean, formal, casual
+    translate_to_english: bool = False  # use Whisper's native translate task
+    cleanup: bool = False               # LLM text cleanup (grammar, filler words)
     model_name: str = "turbo"
     input_device: str | None = None  # None = system default; otherwise device name
 
@@ -107,21 +98,6 @@ class Config:
         return MODEL_MAP[self.model_name]
 
     @property
-    def needs_translation(self) -> bool:
-        """True if translate is on and input != output."""
-        return self.translate and self.language != self.output_language
-
-    @property
-    def whisper_can_translate(self) -> bool:
-        """True if Whisper can handle the translation natively (→ English only)."""
-        return self.needs_translation and self.output_language == "en"
-
-    @property
-    def needs_text_processing(self) -> bool:
-        """True if LLM text processing (clean/formal/casual) is enabled."""
-        return self.text_style != "off"
-
-    @property
-    def needs_llm(self) -> bool:
-        """True if any LLM processing is needed (style or translation)."""
-        return self.needs_text_processing or (self.needs_translation and not self.whisper_can_translate)
+    def use_whisper_translate(self) -> bool:
+        """True if Whisper should translate to English."""
+        return self.translate_to_english and self.language != "en"

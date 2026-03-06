@@ -19,7 +19,7 @@ log = logging.getLogger("LocalWhisper")
 
 from config import (
     Config, MODEL_MAP, MODEL_SIZES_MB, LLM_MODEL_REPO, LLM_SIZE_MB,
-    SHORTCUT_PRESETS, LANGUAGES as LANG_CODES, TEXT_STYLES,
+    SHORTCUT_PRESETS, LANGUAGES as LANG_CODES,
     RECORDING_DURATIONS,
 )
 from model_manager import (
@@ -129,17 +129,23 @@ def _load_settings(config: Config) -> None:
         lang = data.get("language", "")
         if lang in LANG_CODES:
             config.language = lang
-        out_lang = data.get("output_language", "")
-        if out_lang in LANG_CODES and out_lang != "auto":
-            config.output_language = out_lang
-        if isinstance(data.get("translate"), bool):
-            config.translate = data["translate"]
+
+        # New fields
+        if isinstance(data.get("translate_to_english"), bool):
+            config.translate_to_english = data["translate_to_english"]
+        if isinstance(data.get("cleanup"), bool):
+            config.cleanup = data["cleanup"]
+
+        # Migration from old settings
+        if "translate_to_english" not in data:
+            if data.get("translate") and data.get("output_language") == "en":
+                config.translate_to_english = True
+            if data.get("text_style", "off") != "off":
+                config.cleanup = True
+
         shortcut = data.get("shortcut", "")
         if shortcut in SHORTCUT_PRESETS:
             config.shortcut = shortcut
-        text_style = data.get("text_style", "")
-        if text_style in TEXT_STYLES:
-            config.text_style = text_style
         max_rec = data.get("max_recording_seconds")
         if isinstance(max_rec, int) and max_rec in RECORDING_DURATIONS:
             config.max_recording_seconds = max_rec
@@ -157,9 +163,8 @@ def _save_settings(config: Config) -> None:
                 {
                     "model_name": config.model_name,
                     "language": config.language,
-                    "output_language": config.output_language,
-                    "translate": config.translate,
-                    "text_style": config.text_style,
+                    "translate_to_english": config.translate_to_english,
+                    "cleanup": config.cleanup,
                     "max_recording_seconds": config.max_recording_seconds,
                     "shortcut": config.shortcut,
                     "input_device": config.input_device,
@@ -334,18 +339,14 @@ class LocalWhisperApp(rumps.App):
         ]
 
     def _processing_info_text(self) -> str:
-        """Build the info string like 'Deutsch → English · Formal'."""
+        """Build the info string like 'Deutsch → English · Clean up'."""
         in_name = LANG_CODES.get(self._config.language, self._config.language)
-        if self._config.translate and self._config.needs_translation:
-            out_name = LANG_CODES.get(
-                self._config.output_language, self._config.output_language
-            )
-            parts = [f"{in_name} \u2192 {out_name}"]
+        if self._config.use_whisper_translate:
+            parts = [f"{in_name} \u2192 English"]
         else:
             parts = [in_name]
-        style_label = TEXT_STYLES.get(self._config.text_style)
-        if style_label and self._config.text_style != "off":
-            parts.append(style_label)
+        if self._config.cleanup:
+            parts.append("Clean up")
         return " \u00b7 ".join(parts)
 
     def _update_processing_info(self):
@@ -389,18 +390,13 @@ class LocalWhisperApp(rumps.App):
         self._update_processing_info()
         _save_settings(self._config)
 
-    def on_settings_output_lang(self, code):
-        self._config.output_language = code
+    def on_settings_translate_to_english(self, enabled):
+        self._config.translate_to_english = enabled
         self._update_processing_info()
         _save_settings(self._config)
 
-    def on_settings_translate_toggle(self, enabled):
-        self._config.translate = enabled
-        self._update_processing_info()
-        _save_settings(self._config)
-
-    def on_settings_text_style(self, style):
-        self._config.text_style = style
+    def on_settings_cleanup_toggle(self, enabled):
+        self._config.cleanup = enabled
         self._update_processing_info()
         _save_settings(self._config)
 
@@ -526,7 +522,7 @@ class LocalWhisperApp(rumps.App):
         if preset is None:
             preset = SHORTCUT_PRESETS["ctrl_shift_d"]
         log.info(f"Starting hotkey listener: type={preset.get('type')}, preset={self._config.shortcut}")
-        self._hotkey_listener = HotkeyListener(preset, self._on_hotkey)
+        self._hotkey_listener = HotkeyListener(preset, self._on_hotkey, cancel_callback=self._on_cancel)
         t = threading.Thread(target=self._hotkey_listener.start, daemon=True, name="hotkey")
         t.start()
         log.info("Hotkey thread started")
@@ -722,6 +718,18 @@ class LocalWhisperApp(rumps.App):
 
         threading.Thread(target=_do_download, daemon=True, name="default-dl").start()
 
+    def _on_cancel(self):
+        with self._state_lock:
+            if self._state != State.RECORDING:
+                return
+            if self._max_timer is not None:
+                self._max_timer.cancel()
+                self._max_timer = None
+            self._recorder.stop()  # discard audio
+            self._queue_sound(_SOUND_STOP)
+            self._set_state(State.IDLE)
+        log.info("Recording cancelled via Escape")
+
     def _on_hotkey(self):
         with self._state_lock:
             if self._state == State.DOWNLOADING:
@@ -756,7 +764,7 @@ class LocalWhisperApp(rumps.App):
             self._max_timer = None
 
         self._queue_sound(_SOUND_STOP)
-        if self._config.whisper_can_translate:
+        if self._config.use_whisper_translate:
             self._set_state(State.TRANSLATING)
         else:
             self._set_state(State.PROCESSING)
@@ -786,10 +794,10 @@ class LocalWhisperApp(rumps.App):
             cfg = self._config
 
             # Step 1: Transcribe (optionally with Whisper's built-in → English)
-            use_whisper_translate = cfg.whisper_can_translate
+            translate = cfg.use_whisper_translate
             text = self._transcriber.transcribe(
                 audio,
-                translate_to_english=use_whisper_translate,
+                translate_to_english=translate,
             )
             if not text:
                 self._notify("No speech detected.")
@@ -797,38 +805,14 @@ class LocalWhisperApp(rumps.App):
                     self._set_state(State.IDLE)
                 return
 
-            # Step 2: LLM processing (text style and/or translation)
-            needs_style = cfg.needs_text_processing
-            needs_translate = cfg.needs_translation and not use_whisper_translate
-            src = cfg.language if cfg.language != "auto" else "auto"
-
-            if needs_style and needs_translate:
-                # Combined: rephrase + translate in one LLM call
-                log.info(f"LLM translate+rephrase: {src} -> {cfg.output_language}, style={cfg.text_style}")
-                self._ensure_llm_downloaded()
-                with self._state_lock:
-                    self._set_state(State.TRANSLATING)
-                text = self._llm.translate_and_rephrase(
-                    text, src, cfg.output_language, cfg.text_style
-                )
-
-            elif needs_style:
-                # Style only (same language)
-                log.info(f"LLM rephrase: style={cfg.text_style}")
+            # Step 2: LLM cleanup (grammar, filler words, false starts)
+            if cfg.cleanup:
+                cleanup_lang = "en" if translate else cfg.language
+                log.info(f"LLM cleanup: lang={cleanup_lang}")
                 self._ensure_llm_downloaded()
                 with self._state_lock:
                     self._set_state(State.PROCESSING, status="Processing\u2026")
-                # Use output_language if translating, otherwise input language
-                rephrase_lang = cfg.output_language if use_whisper_translate else cfg.language
-                text = self._llm.rephrase(text, cfg.text_style, language=rephrase_lang)
-
-            elif needs_translate:
-                # Translation only
-                log.info(f"LLM translation: {src} -> {cfg.output_language}")
-                self._ensure_llm_downloaded()
-                with self._state_lock:
-                    self._set_state(State.TRANSLATING)
-                text = self._llm.translate(text, src, cfg.output_language)
+                text = self._llm.cleanup(text, language=cleanup_lang)
 
             with self._state_lock:
                 self._set_state(State.INSERTING)

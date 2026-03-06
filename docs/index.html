@@ -541,44 +541,7 @@
     transition: opacity 0.5s ease-in-out;
   }
 
-  /* ─── TRANSLATION SECTION ─── */
-  .translate-flow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    margin-top: 56px;
-    flex-wrap: wrap;
-  }
-
-  .translate-box {
-    padding: 24px 32px;
-    background: var(--bg-card);
-    border: 1px solid var(--border-subtle);
-    border-radius: 16px;
-    text-align: center;
-    min-width: 180px;
-  }
-
-  .translate-box .lang {
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 4px;
-  }
-
-  .translate-box .example {
-    font-size: 15px;
-    color: var(--text-secondary);
-    font-style: italic;
-  }
-
-  .translate-arrow {
-    font-size: 24px;
-    color: var(--indigo-bright);
-  }
-
-  /* ─── TEXT PROCESSING ─── */
+  /* ─── TEXT CLEANUP ─── */
   .style-cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -617,74 +580,6 @@
     color: var(--indigo-bright);
     font-size: 12px;
     margin-bottom: 6px;
-  }
-
-  /* ─── MODELS ─── */
-  .models-table {
-    margin-top: 56px;
-    border: 1px solid var(--border-subtle);
-    border-radius: 20px;
-    overflow: hidden;
-    background: var(--bg-card);
-  }
-
-  .models-table table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .models-table th {
-    text-align: left;
-    padding: 16px 24px;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border-subtle);
-    background: var(--bg-elevated);
-  }
-
-  .models-table td {
-    padding: 14px 24px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    border-bottom: 1px solid rgba(255,255,255,0.02);
-  }
-
-  .models-table tr:last-child td { border-bottom: none; }
-
-  .models-table .model-name {
-    color: var(--text-primary);
-    font-weight: 600;
-  }
-
-  .models-table .tag {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 6px;
-    font-size: 11px;
-    font-weight: 600;
-  }
-
-  .tag-default {
-    background: rgba(108,99,255,0.12);
-    color: var(--indigo-glow);
-  }
-
-  .tag-fast {
-    background: rgba(52,199,89,0.1);
-    color: #34C759;
-  }
-
-  .tag-quality {
-    background: rgba(255,159,10,0.1);
-    color: #FF9F0A;
-  }
-
-  .tag-llm {
-    background: rgba(90,200,250,0.1);
-    color: var(--accent-teal);
   }
 
   /* ─── INSTALL SECTION ─── */
@@ -829,9 +724,7 @@
   <div class="nav-links">
     <a href="#privacy">Privacy</a>
     <a href="#how">How it works</a>
-    <a href="#translation">Translation</a>
-    <a href="#processing">Processing</a>
-    <a href="#models">Models</a>
+    <a href="#features">Features</a>
     <a href="#install">Install</a>
     <a href="https://github.com/gnlcsvn/local-whisper" class="btn-github" target="_blank">
       <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
@@ -853,7 +746,7 @@
   <h1>Dictation that<br><em>never leaves</em><br>your Mac</h1>
 
   <p class="hero-sub">
-    Press a hotkey, speak naturally, release. Your words appear at the cursor — transcribed locally with mlx-whisper. No cloud. No account. No data collected. Ever.
+    Press a hotkey, speak, release. Your words appear at the cursor — transcribed locally on Apple Silicon. No cloud, no account, no data collected.
   </p>
 
   <div class="hero-actions">
@@ -947,7 +840,7 @@
       <div class="how-step">
         <div class="step-num">3</div>
         <h3>Text appears</h3>
-        <p>mlx-whisper transcribes on your GPU, optionally translates and polishes the text, then pastes it at your cursor in any app.</p>
+        <p>mlx-whisper transcribes on your GPU, optionally cleans up the text, then pastes it at your cursor in any app.</p>
       </div>
     </div>
   </div>
@@ -1061,169 +954,72 @@
           </svg>
         </div>
         <div class="state-label" style="color: #5AC8FA;">Translating</div>
-        <div class="state-desc">Dual arcs with cycling scripts<br>Language model active</div>
+        <div class="state-desc">Dual arcs spinning<br>Translating to English</div>
       </div>
     </div>
 
   </div>
 </section>
 
-<!-- TRANSLATION -->
-<section id="translation" style="background: var(--bg-card);">
+<!-- FEATURES -->
+<section id="features" style="background: var(--bg-card);">
   <div class="container reveal">
-    <div class="section-label">Translation</div>
-    <div class="section-title">Speak in one language,<br>type in another</div>
-    <p class="section-desc">
-      Any-to-any translation powered by a local LLM (Llama 3.2 3B). For input-to-English, Whisper handles it natively — no extra model needed.
-    </p>
+    <div class="section-label">Features</div>
+    <div class="section-title">Simple and powerful.<br>Everything you need.</div>
 
-    <div class="translate-flow">
-      <div class="translate-box">
-        <div class="lang">Deutsch</div>
-        <div class="example">"Hallo, wie geht es dir?"</div>
-      </div>
-      <div class="translate-arrow">&rarr;</div>
-      <div class="translate-box" style="border-color: var(--border-glass);">
-        <div class="lang" style="color: var(--indigo-glow);">English</div>
-        <div class="example">"Hello, how are you?"</div>
-      </div>
-    </div>
-
-    <div class="privacy-grid" style="margin-top: 40px;">
+    <div class="privacy-grid" style="margin-top: 56px;">
       <div class="privacy-card">
         <div class="icon-wrap">&#x1f310;</div>
         <h3>12 languages</h3>
-        <p>Deutsch, English, Fran&ccedil;ais, Espa&ntilde;ol, Italiano, Portugu&ecirc;s, Nederlands, Polski, Japanese, Chinese, Korean, Russian.</p>
+        <p>Speak in German, French, Spanish, Japanese, Chinese, and 7 more languages. Auto-detect available too.</p>
       </div>
       <div class="privacy-card">
-        <div class="icon-wrap">&#x1f9e0;</div>
-        <h3>Runs locally</h3>
-        <p>The translation LLM (1.8 GB, 4-bit quantized) runs entirely on Apple Silicon via mlx-lm. No API calls, no cloud.</p>
+        <div class="icon-wrap">&#x1f52e;</div>
+        <h3>Translate to English</h3>
+        <p>Speak in any language and get English output using Whisper's built-in translation &mdash; no extra model needed.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x2728;</div>
+        <h3>Clean up text</h3>
+        <p>Toggle on &ldquo;Clean up&rdquo; to automatically fix grammar, remove filler words like &ldquo;um&rdquo; and &ldquo;uh&rdquo;, and cut false starts.</p>
       </div>
       <div class="privacy-card">
         <div class="icon-wrap">&#x26a1;</div>
-        <h3>Auto-download</h3>
-        <p>The translation model downloads automatically on first use. Toggle translation on/off in the Settings window, pick your languages, and start dictating.</p>
+        <h3>5 Whisper models</h3>
+        <p>From Tiny (75 MB, instant) to Large (3 GB, best accuracy). Pick your speed/quality balance in Settings.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x2328;</div>
+        <h3>Customizable hotkey</h3>
+        <p>Ctrl+Shift+D, Ctrl+Shift+Space, or double-tap Ctrl, Cmd, or Shift. Press Escape to cancel.</p>
+      </div>
+      <div class="privacy-card">
+        <div class="icon-wrap">&#x1f3a8;</div>
+        <h3>Animated overlay</h3>
+        <p>A floating lock icon shows recording, processing, and translating states with live animations. Works in light and dark mode.</p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- TEXT PROCESSING -->
-<section id="processing">
+<!-- CLEANUP DEMO -->
+<section id="cleanup">
   <div class="container reveal">
-    <div class="section-label">Text processing</div>
-    <div class="section-title">Clean up your speech,<br>keep your meaning</div>
+    <div class="section-label">Text cleanup</div>
+    <div class="section-title">From raw speech<br>to clean text</div>
     <p class="section-desc">
-      An on-device LLM (Llama 3.2 3B) post-processes transcriptions to fix grammar and adjust tone &mdash; without changing what you said. Works in any language.
+      An on-device LLM removes the &ldquo;ums&rdquo; and fixes the grammar &mdash; without changing what you said.
     </p>
 
-    <div class="style-cards">
+    <div class="style-cards" style="margin-top: 56px;">
       <div class="style-card">
-        <h4>Clean up</h4>
-        <div class="before">&ldquo;so yeah i went to the uh store and bought like some stuff&rdquo;</div>
-        <div class="arrow">&darr;</div>
-        <div class="after">&ldquo;I went to the store and bought some stuff.&rdquo;</div>
+        <h4>Before</h4>
+        <div class="before" style="font-size: 15px; margin-bottom: 0;">&ldquo;so yeah i went to the uh store and like bought some stuff um and then i went home&rdquo;</div>
       </div>
-      <div class="style-card">
-        <h4>Formal</h4>
-        <div class="before">&ldquo;hey can you send me that report thing asap&rdquo;</div>
-        <div class="arrow">&darr;</div>
-        <div class="after">&ldquo;Could you please send me the report at your earliest convenience?&rdquo;</div>
+      <div class="style-card" style="border-color: var(--border-glass);">
+        <h4 style="color: var(--indigo-glow);">After cleanup</h4>
+        <div class="after" style="font-size: 15px;">&ldquo;I went to the store and bought some stuff, and then I went home.&rdquo;</div>
       </div>
-      <div class="style-card">
-        <h4>Casual</h4>
-        <div class="before">&ldquo;I would like to inform you that I shall be arriving at approximately 3pm&rdquo;</div>
-        <div class="arrow">&darr;</div>
-        <div class="after">&ldquo;Hey, I'll be there around 3!&rdquo;</div>
-      </div>
-    </div>
-
-    <div class="privacy-grid" style="margin-top: 40px;">
-      <div class="privacy-card">
-        <div class="icon-wrap">&#x1f9e0;</div>
-        <h3>Meaning preserved</h3>
-        <p>The LLM adjusts tone and fixes errors, but never adds or removes content. Your words, polished.</p>
-      </div>
-      <div class="privacy-card">
-        <div class="icon-wrap">&#x1f310;</div>
-        <h3>Any language</h3>
-        <p>Text processing works in all 12 supported languages. Speak German, get polished German back.</p>
-      </div>
-      <div class="privacy-card">
-        <div class="icon-wrap">&#x26a1;</div>
-        <h3>Combine with translation</h3>
-        <p>Use text processing and translation together &mdash; speak casually in German, get formal English output.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- MODELS -->
-<section id="models">
-  <div class="container reveal">
-    <div class="section-label">Whisper models</div>
-    <div class="section-title">Pick your balance of<br>speed and accuracy</div>
-    <p class="section-desc">
-      All models run natively on Apple Silicon via mlx-whisper. Downloaded once from HuggingFace, then fully offline forever.
-    </p>
-
-    <div class="models-table">
-      <table>
-        <thead>
-          <tr>
-            <th>Model</th>
-            <th>Size</th>
-            <th>Speed</th>
-            <th>Accuracy</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td class="model-name">Tiny</td>
-            <td>75 MB</td>
-            <td>Fastest</td>
-            <td>Basic</td>
-            <td><span class="tag tag-fast">Fast</span></td>
-          </tr>
-          <tr>
-            <td class="model-name">Small</td>
-            <td>460 MB</td>
-            <td>Fast</td>
-            <td>Good</td>
-            <td><span class="tag tag-fast">Compact</span></td>
-          </tr>
-          <tr>
-            <td class="model-name">Turbo</td>
-            <td>1.5 GB</td>
-            <td>Balanced</td>
-            <td>Good</td>
-            <td><span class="tag tag-default">Default</span></td>
-          </tr>
-          <tr>
-            <td class="model-name">Medium</td>
-            <td>1.5 GB</td>
-            <td>Slower</td>
-            <td>High</td>
-            <td><span class="tag tag-quality">Quality</span></td>
-          </tr>
-          <tr>
-            <td class="model-name">Large</td>
-            <td>3.0 GB</td>
-            <td>Slowest</td>
-            <td>Highest</td>
-            <td><span class="tag tag-quality">Best</span></td>
-          </tr>
-          <tr>
-            <td class="model-name">Translation LLM</td>
-            <td>1.8 GB</td>
-            <td>&#x2014;</td>
-            <td>&#x2014;</td>
-            <td><span class="tag tag-llm">LLM</span></td>
-          </tr>
-        </tbody>
-      </table>
     </div>
   </div>
 </section>
@@ -1237,7 +1033,7 @@
     <div class="install-card">
       <h3 style="font-size: 20px; font-weight: 600; margin-bottom: 4px;">Download the app</h3>
       <p style="font-size: 14px; color: var(--text-secondary); margin-bottom: 20px;">
-        Grab the .dmg, drag to Applications. On first launch go to System Settings &rarr; Privacy &amp; Security &rarr; Open Anyway. Then grant Mic &amp; Accessibility permissions.
+        Grab the .dmg, drag to Applications. On first launch, go to System Settings &rarr; Privacy &amp; Security &rarr; Open Anyway (app is unsigned). Then grant Microphone &amp; Accessibility permissions.
       </p>
       <a href="https://github.com/gnlcsvn/local-whisper/releases/latest/download/LocalWhisper.dmg" class="btn-primary" style="width: 100%; justify-content: center;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1290,22 +1086,6 @@
 
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  // Cycling language letters for translating animation
-  (function() {
-    var letters = ['\u0414', '\u6587', '\u3042', '\uD55C', '\u03A3', '\u00C4'];
-    var li = 0;
-    setInterval(function() {
-      var els = document.querySelectorAll('.trans-letter-web');
-      els.forEach(function(el) { el.setAttribute('opacity', '0'); });
-      setTimeout(function() {
-        li = (li + 1) % letters.length;
-        els.forEach(function(el) {
-          el.textContent = letters[li];
-          el.setAttribute('opacity', '0.35');
-        });
-      }, 500);
-    }, 1800);
-  })();
 </script>
 
 </body>
