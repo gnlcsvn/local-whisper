@@ -12,11 +12,11 @@ On first launch, grant **Microphone**, **Accessibility**, and **Input Monitoring
 
 ## Usage
 
-1. Press **Ctrl+Shift+D** (default hotkey) — recording starts, a floating overlay appears
-2. Speak naturally in any supported language
-3. Press the hotkey again (or wait for auto-stop) — text is transcribed and pasted at your cursor
+1. Press your hotkey (default: **Ctrl+Shift+D**) — recording starts, a floating overlay appears
+2. Keep working normally — switch apps, browse, type. Recording runs in the background
+3. Press the hotkey again — your speech is transcribed and pasted at your cursor
 
-Press **Escape** while recording to cancel without pasting.
+Not in a text field? No problem — the transcription is saved in the menubar menu so you can copy it later. Press **Escape** while recording to cancel.
 
 ## Settings
 
