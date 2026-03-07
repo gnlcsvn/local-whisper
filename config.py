@@ -74,6 +74,26 @@ SHORTCUT_PRESETS = {
         "key": "shift_l",
         "interval": 0.4,
     },
+    "hold_ctrl_l": {
+        "label": "Hold Left Ctrl",
+        "type": "push_to_talk",
+        "key": "ctrl_l",
+    },
+    "hold_cmd_r": {
+        "label": "Hold Right \u2318  (Cmd)",
+        "type": "push_to_talk",
+        "key": "cmd_r",
+    },
+    "hold_alt_r": {
+        "label": "Hold Right \u2325  (Option)",
+        "type": "push_to_talk",
+        "key": "alt_r",
+    },
+    "hold_alt_l": {
+        "label": "Hold Left \u2325  (Option)",
+        "type": "push_to_talk",
+        "key": "alt_l",
+    },
 }
 
 

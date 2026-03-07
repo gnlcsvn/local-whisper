@@ -604,7 +604,11 @@ class LocalWhisperApp(rumps.App):
         if preset is None:
             preset = SHORTCUT_PRESETS["ctrl_shift_d"]
         log.info(f"Starting hotkey listener: type={preset.get('type')}, preset={self._config.shortcut}")
-        self._hotkey_listener = HotkeyListener(preset, self._on_hotkey, cancel_callback=self._on_cancel)
+        self._hotkey_listener = HotkeyListener(
+            preset, self._on_hotkey,
+            cancel_callback=self._on_cancel,
+            release_callback=self._on_hotkey_release,
+        )
         t = threading.Thread(target=self._hotkey_listener.start, daemon=True, name="hotkey")
         t.start()
         log.info("Hotkey thread started")
@@ -831,6 +835,12 @@ class LocalWhisperApp(rumps.App):
                 self._set_state(State.RECORDING)
                 self._start_recording()
             elif self._state == State.RECORDING:
+                self._stop_and_transcribe()
+
+    def _on_hotkey_release(self):
+        """Handle key release — used by push-to-talk to stop recording."""
+        with self._state_lock:
+            if self._state == State.RECORDING:
                 self._stop_and_transcribe()
 
     def _start_recording(self):

@@ -54,9 +54,10 @@ class HotkeyListener:
     Changing shortcuts only swaps internal detection logic — no event tap teardown.
     """
 
-    def __init__(self, shortcut_config: dict, callback, cancel_callback=None):
+    def __init__(self, shortcut_config: dict, callback, cancel_callback=None, release_callback=None):
         self._callback = callback
         self._cancel_callback = cancel_callback
+        self._release_callback = release_callback
         self._lock = threading.Lock()  # protects config fields
         self._listener: keyboard.Listener | None = None
         self._stop_event = threading.Event()
@@ -71,7 +72,16 @@ class HotkeyListener:
         """Set detection mode from config. Caller must hold _lock or be in __init__."""
         self._mode = config.get("type", "combo")
 
-        if self._mode == "double_tap":
+        if self._mode == "push_to_talk":
+            key_name = config.get("key", "ctrl_l")
+            self._ptt_key = _KEY_MAP.get(key_name)
+            self._ptt_held = False
+            # Clear other fields
+            self._combo_modifiers = frozenset()
+            self._combo_trigger = None
+            self._tap_key = None
+            self._last_release_time = 0.0
+        elif self._mode == "double_tap":
             key_name = config.get("key", "ctrl_l")
             self._tap_key = _KEY_MAP.get(key_name)
             self._tap_interval = config.get("interval", 0.4)
@@ -79,6 +89,8 @@ class HotkeyListener:
             # Combo fields not used
             self._combo_modifiers = frozenset()
             self._combo_trigger = None
+            self._ptt_key = None
+            self._ptt_held = False
         else:
             combo_str = config.get("combo", "<ctrl>+<shift>+d")
             self._combo_modifiers, self._combo_trigger = _parse_combo(combo_str)
@@ -86,6 +98,8 @@ class HotkeyListener:
             self._tap_key = None
             self._tap_interval = 0.4
             self._last_release_time = 0.0
+            self._ptt_key = None
+            self._ptt_held = False
 
         log.info(f"Shortcut config applied: mode={self._mode}")
 
@@ -157,11 +171,15 @@ class HotkeyListener:
 
             if self._mode == "combo":
                 self._check_combo(key)
+            elif self._mode == "push_to_talk":
+                self._check_ptt_press(key)
 
     def _on_release(self, key) -> None:
         with self._lock:
             if self._mode == "double_tap":
                 self._check_doubletap(key)
+            elif self._mode == "push_to_talk":
+                self._check_ptt_release(key)
 
             # Untrack modifier
             mod = _MODIFIER_KEYS.get(key)
@@ -207,6 +225,30 @@ class HotkeyListener:
             self._fire()
         else:
             self._last_release_time = now
+
+    # ── Push-to-talk detection ────────────────────────────
+
+    def _check_ptt_press(self, key) -> None:
+        """Start recording on key press (ignore key-repeat)."""
+        if key != self._ptt_key:
+            return
+        if self._ptt_held:
+            return  # suppress key repeat
+        self._ptt_held = True
+        self._fire()
+
+    def _check_ptt_release(self, key) -> None:
+        """Stop recording on key release."""
+        if key != self._ptt_key:
+            return
+        if not self._ptt_held:
+            return
+        self._ptt_held = False
+        if self._release_callback is not None:
+            try:
+                self._release_callback()
+            except Exception:
+                log.exception("Error in release callback")
 
     # ── Callback ─────────────────────────────────────────
 
