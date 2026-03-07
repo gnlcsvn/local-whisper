@@ -46,16 +46,6 @@ RECORDING_DURATIONS = {
 
 # Shortcut presets: id -> (display_label, type, config)
 SHORTCUT_PRESETS = {
-    "ctrl_shift_d": {
-        "label": "\u2303\u21e7D  (Ctrl+Shift+D)",
-        "type": "combo",
-        "combo": "<ctrl>+<shift>+d",
-    },
-    "ctrl_shift_space": {
-        "label": "\u2303\u21e7Space  (Ctrl+Shift+Space)",
-        "type": "combo",
-        "combo": "<ctrl>+<shift>+<space>",
-    },
     "double_ctrl": {
         "label": "Double-tap Left Ctrl",
         "type": "double_tap",
@@ -74,11 +64,6 @@ SHORTCUT_PRESETS = {
         "key": "shift_l",
         "interval": 0.4,
     },
-    "hold_ctrl_l": {
-        "label": "Hold Left Ctrl",
-        "type": "push_to_talk",
-        "key": "ctrl_l",
-    },
     "hold_cmd_r": {
         "label": "Hold Right \u2318  (Cmd)",
         "type": "push_to_talk",
@@ -89,16 +74,11 @@ SHORTCUT_PRESETS = {
         "type": "push_to_talk",
         "key": "alt_r",
     },
-    "hold_alt_l": {
-        "label": "Hold Left \u2325  (Option)",
-        "type": "push_to_talk",
-        "key": "alt_l",
-    },
 }
 
 
 class Config:
-    shortcut: str = "ctrl_shift_d"
+    shortcut: str = "double_ctrl"
     sample_rate: int = 16_000
     max_recording_seconds: int = 120
     language: str = "de"           # input language (what you speak)

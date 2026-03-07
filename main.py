@@ -602,7 +602,7 @@ class LocalWhisperApp(rumps.App):
     def _start_hotkey(self):
         preset = SHORTCUT_PRESETS.get(self._config.shortcut)
         if preset is None:
-            preset = SHORTCUT_PRESETS["ctrl_shift_d"]
+            preset = SHORTCUT_PRESETS["double_ctrl"]
         log.info(f"Starting hotkey listener: type={preset.get('type')}, preset={self._config.shortcut}")
         self._hotkey_listener = HotkeyListener(
             preset, self._on_hotkey,

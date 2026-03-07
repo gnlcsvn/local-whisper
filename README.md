@@ -12,9 +12,11 @@ On first launch, grant **Microphone**, **Accessibility**, and **Input Monitoring
 
 ## Usage
 
-1. Press your hotkey (default: **Ctrl+Shift+D**) — recording starts, a floating overlay appears
+1. Double-tap your shortcut key (default: **Left Ctrl**) — recording starts, a floating overlay appears
 2. Keep working normally — switch apps, browse, type. Recording runs in the background
-3. Press the hotkey again — your speech is transcribed and pasted at your cursor
+3. Double-tap again — your speech is transcribed and pasted at your cursor
+
+Or use **Hold mode** (Right ⌘ or Right ⌥) — hold the key while speaking, release to transcribe.
 
 Not in a text field? No problem — the transcription is saved in the menubar menu so you can copy it later. Press **Escape** while recording to cancel.
 
@@ -25,9 +27,9 @@ Open **Settings…** (⌘,) from the menubar menu. Everything persists in `~/.lo
 - **Model** — choose from 5 Whisper models (Tiny to Large), downloaded on demand
 - **Language** — pick your input language or use auto-detect
 - **Translate to English** — uses Whisper's built-in translation (no extra model needed)
-- **Clean up text** — fixes grammar, spelling, removes filler words ("um", "uh"), false starts, and repetitions using a local LLM
+- **Clean up text** — removes filler words ("um", "uh"), false starts, and fixes punctuation using a local LLM, without rephrasing your words
 - **Audio** — microphone selection, max recording duration (30s – 10min)
-- **Shortcut** — Ctrl+Shift+D, Ctrl+Shift+Space, or double-tap Ctrl/Cmd/Shift
+- **Shortcut** — double-tap (Ctrl, Cmd, Shift) or hold (Right ⌘, Right ⌥)
 
 ## Build from Source
 
