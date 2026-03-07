@@ -15,7 +15,7 @@ mlx_lm_datas = collect_data_files("mlx_lm")
 certifi_datas = collect_data_files("certifi")
 
 # Status bar idle icon only (overlay handles animated states via WKWebView)
-statusbar_datas = [("icons/statusbar_idleTemplate.png", "icons"), ("icons/statusbar_idleTemplate@2x.png", "icons")]
+statusbar_datas = [("menubarTemplate.png", "."), ("menubarTemplate@2x.png", ".")]
 
 all_datas = mlx_datas + sounddevice_datas + tiktoken_datas + mlx_whisper_datas + mlx_lm_datas + certifi_datas + statusbar_datas
 
