@@ -97,10 +97,13 @@ class LLMProcessor:
 
         lang_name = _LANG_NAMES.get(language, language)
         prompt = (
-            f"Clean up this {lang_name} transcription. "
-            "Fix punctuation, capitalization, spelling, and grammar. "
-            "Remove filler words (um, uh, ah, like), false starts, and repeated phrases. "
-            "Do not change the meaning or add new content. "
+            f"Minimally clean up this {lang_name} transcription. "
+            "Keep the speaker's exact words and sentence structure. "
+            "ONLY do these things:\n"
+            "- Remove filler words (um, uh, ah, like, you know)\n"
+            "- Remove false starts and repeated words\n"
+            "- Fix punctuation, capitalization, and spelling\n"
+            "Do NOT rephrase, restructure, or reword anything. "
             f"Output ONLY the cleaned text.\n\n{text}"
         )
 

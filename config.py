@@ -3,7 +3,7 @@ MODEL_MAP = {
     "small": "mlx-community/whisper-small-mlx",
     "turbo": "mlx-community/whisper-turbo",
     "medium": "mlx-community/whisper-medium",
-    "large": "mlx-community/whisper-large-v3-turbo",
+    "large": "mlx-community/whisper-large-v3-mlx",
 }
 
 MODEL_SIZES_MB = {"tiny": 75, "small": 460, "turbo": 1500, "medium": 1500, "large": 3000}

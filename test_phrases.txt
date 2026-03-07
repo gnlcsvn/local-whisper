@@ -1,0 +1,111 @@
+================================================================================
+  LOCALWHISPER EVALUATION SCRIPT
+  Read these phrases aloud to test transcription accuracy across models.
+  Speak naturally — include the filler words marked in [brackets].
+  After each phrase, leave your transcription on the blank line below it.
+================================================================================
+
+
+--- SECTION 1: SIMPLE SENTENCES ---
+(Baseline accuracy — every model should get these right)
+
+The weather is nice today.
+
+I need to go to the grocery store after work.
+
+Can you send me the report by Friday?
+
+She said the meeting was moved to three o'clock.
+
+I'll pick up the kids from school at four thirty.
+
+
+--- SECTION 2: FILLER WORDS & FALSE STARTS ---
+(Read these exactly as written, including the fillers — tests cleanup)
+
+So [um] I was thinking we could [uh] maybe go to the park later.
+
+The thing is [like] I don't really [you know] understand the problem.
+
+I want to— I need to finish this before— before the deadline.
+
+It's [uh] it's about [um] three hundred dollars I think.
+
+We should— actually no, let's [um] let's just do it tomorrow.
+
+
+--- SECTION 3: TECHNICAL TERMS ---
+(Tests vocabulary — common tech terms that models often fumble)
+
+The API endpoint returns a JSON response with OAuth two tokens.
+
+We need to refactor the PostgreSQL database schema.
+
+The Kubernetes cluster is running on three EC two instances.
+
+Check the Nginx config and restart the Docker container.
+
+The TypeScript compiler throws an error on line forty-seven.
+
+
+--- SECTION 4: NUMBERS, DATES & PROPER NOUNS ---
+(Tests formatting and named entity recognition)
+
+The invoice total is fourteen thousand seven hundred and sixty-three dollars.
+
+Her flight lands at JFK on March twenty-first at eleven forty-five PM.
+
+Send it to john dot smith at gmail dot com.
+
+The address is two hundred fifty-five West Forty-Second Street, New York.
+
+Version three point fourteen point one was released on January ninth.
+
+
+--- SECTION 5: LONGER DICTATION ---
+(Tests coherence over longer passages — read each as one continuous block)
+
+I wanted to follow up on our conversation from last week about the project timeline. We agreed that the first milestone would be completed by the end of March, but given the recent changes in scope, I think we should revisit that date and possibly push it back by two weeks.
+
+The quarterly results show a twelve percent increase in revenue compared to the same period last year. However, operating expenses also went up by about eight percent, mainly due to the new hires in the engineering department. Overall, the net margin improved slightly, which is a positive sign.
+
+Here's what I need you to do. First, download the latest dataset from the shared drive. Then, run the preprocessing script — it's called clean data dot py. After that, check the output for any missing values and flag them in the spreadsheet. Let me know when you're done.
+
+
+--- SECTION 6: HOMOPHONES & TRICKY WORDS ---
+(Tests context-aware word choice)
+
+Their car is over there, and they're not happy about it.
+
+The effect of the new policy will affect everyone in the department.
+
+I need to accept the changes, except for the last paragraph.
+
+We're going to the site to assess whether it's right for the project.
+
+He led the team to the lead mine near the desert, where they desert the plan.
+
+
+--- SECTION 7: FAST SPEECH & CASUAL TONE ---
+(Read these quickly and casually, as you would in real conversation)
+
+Yeah so basically what happened was the server went down and nobody noticed for like two hours which is kinda ridiculous if you ask me.
+
+I dunno, I think we should probably just go with the cheaper option and see how it goes, you know what I mean?
+
+Alright so the thing is we gotta get this done by end of day cuz the client is expecting it first thing tomorrow morning.
+
+
+================================================================================
+  HOW TO EVALUATE
+
+  For each phrase, compare the transcription output against the expected text.
+  Score each on:
+    - Word accuracy: are the right words captured?
+    - Punctuation: are sentences properly punctuated?
+    - Formatting: are numbers, emails, addresses handled well?
+    - Cleanup quality: are fillers removed without changing meaning?
+
+  Test with: tiny, small, turbo, large
+  Note which model + cleanup setting gives the best results.
+================================================================================
